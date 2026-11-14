@@ -257,7 +257,9 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
             </View>
 
             <UserProfile 
-              displayName={userProfile.displayName}
+              displayName={
+                userProfile.displayName || (features.backend ? '' : t('localWallet.profileTitle'))
+              }
               email={
                 features.backend
                   ? displayEmail(userProfile, t('settings.emailNotLinked'))

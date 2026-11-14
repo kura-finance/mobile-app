@@ -482,6 +482,7 @@
     "noPhraseNote": "這個錢包是用私鑰匯入的，沒有助記詞，請改為備份私鑰。",
     "recoverTitle": "在其他地方使用這份備份",
     "recoverBody": "助記詞或私鑰控制的是簽署者地址，你的資金放在它所擁有的 Safe 智慧帳戶裡：把簽署者匯入任何錢包，再用支援 Safe 的 App 開啟 Base 上的智慧帳戶即可。在另一支手機的本 App 匯入，也會還原出同一個錢包。",
+    "profileTitle": "我的錢包",
     "profileSubtitle": "此裝置上的錢包",
     "removeTitle": "從此裝置移除錢包",
     "removeDesc": "刪除這裡的金鑰。資金仍在鏈上，可用助記詞還原。",

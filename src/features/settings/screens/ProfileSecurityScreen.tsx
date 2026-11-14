@@ -111,6 +111,18 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
           setPinError('');
         }}
         onForgotPin={async () => {
+          if (!features.backend) {
+            // On-device wallet: a forgotten PIN can only be reset by removing
+            // the wallet and restoring it from its backup. Keep the PIN until
+            // the user confirms that (logout asks) — clearing it first would
+            // let anyone holding the unlocked app drop the PIN, back out, set
+            // a new one and read the recovery phrase.
+            if (await privyLogout()) {
+              setShowSetPin(false);
+              onClose();
+            }
+            return;
+          }
           await clearAppPin();
           await refreshAppPinStatus();
           setShowSetPin(false);

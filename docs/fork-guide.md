@@ -77,7 +77,7 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER` | Morpho API wrapper discovery | Optional — default off |
 | `EXPO_PUBLIC_WALLET_ICON_URL` | AppKit / WalletKit icon | Legacy alias: `EXPO_PUBLIC_KURA_WALLET_ICON_URL` |
 
-**Public by default:** Base RPC, Li.Fi, Morpho GraphQL, CoinGecko, Blockscout — see [official-services.md](official-services.md).
+**Public by default:** Base RPC, Li.Fi, Morpho GraphQL, CoinGecko, Safe Transaction Service — see [official-services.md](official-services.md).
 
 Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari (`hasAppBackend()`). Earn deposits go directly to Morpho unless fee-wrapper env is set. Sample wrapper addresses in `EXAMPLE_MORPHO_FEE_WRAPPER_OVERRIDES` are for history / copy-paste into env only — not active by default.
 

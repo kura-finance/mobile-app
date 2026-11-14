@@ -55,6 +55,8 @@ export interface UseKuraCardWalletReturn {
   isExecutingEarn: boolean;
   isExecutingBorrow: boolean;
   importWallet: (phrase: string, type: ImportMnemonicType) => Promise<void>;
+  /** Run wallet setup again after `status: 'error'`. */
+  retryProvision: () => void;
   refreshBalance: () => Promise<void>;
   sendUsdc: (toAddress: string, amountUsdc: number) => Promise<string>;
   sendToken: (

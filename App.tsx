@@ -522,7 +522,9 @@ function AppInner() {
 
   // Watchdog 2: signed into Privy but the Kura token exchange never completes.
   useEffect(() => {
-    if (!(user && !authToken)) {
+    // On-device wallets have no token exchange to wait for (a locked app has a
+    // user and no token for as long as it stays locked).
+    if (LOCAL_SESSION || !(user && !authToken)) {
       setSignInTimedOut(false);
       return;
     }

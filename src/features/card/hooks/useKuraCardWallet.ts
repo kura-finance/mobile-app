@@ -123,6 +123,9 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const [isExecutingEarn, setIsExecutingEarn] = useState(false);
   const [isExecutingBorrow, setIsExecutingBorrow] = useState(false);
 
+  // Bumped by retryProvision() to run the provisioning effect again.
+  const [provisionAttempt, setProvisionAttempt] = useState(0);
+
   const cancelRef = useRef(false);
   const provisioningRef = useRef(false);
   const provisionedScaRef = useRef<string | null>(null);
@@ -326,7 +329,14 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       cancelRef.current = true;
       provisioningRef.current = false;
     };
-  }, [sessionUsable, user, user?.id, embeddedWalletKey, createEmbeddedWallet]);
+  }, [sessionUsable, user, user?.id, embeddedWalletKey, createEmbeddedWallet, provisionAttempt]);
+
+  /** Try wallet setup again after it ended in `status: 'error'`. */
+  const retryProvision = useCallback(() => {
+    setErrorMessage('');
+    setStatus('loading');
+    setProvisionAttempt((attempt) => attempt + 1);
+  }, []);
 
   const requireReady = useCallback(() => {
     if (!smartAddress) throw new Error('Wallet not ready.');
@@ -564,6 +574,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     isExecutingEarn,
     isExecutingBorrow,
     importWallet,
+    retryProvision,
     refreshBalance,
     sendUsdc,
     sendToken,
@@ -600,6 +611,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     isExecutingEarn,
     isExecutingBorrow,
     importWallet,
+    retryProvision,
     refreshBalance,
     sendUsdc,
     sendToken,

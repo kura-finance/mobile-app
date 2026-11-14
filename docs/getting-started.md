@@ -53,7 +53,7 @@ Edit `.env` — all runtime config is read through [`src/config/env.ts`](../src/
 | Li.Fi swap / bridge | `https://li.quest/v1` |
 | Morpho Earn | `https://api.morpho.org/graphql` |
 | CoinGecko prices | `https://api.coingecko.com` |
-| Tx history | Base Blockscout |
+| Tx history | Safe Transaction Service (`api.safe.global`) + Base RPC logs |
 
 #### Optional
 
@@ -153,7 +153,7 @@ cp .env.example .env
 
 **核心钱包最低配置：** Privy App ID / Client ID、WalletConnect Project ID。Pimlico key 可选（无 key 时公用 bundler + ETH gas）。
 
-**公用默认：** Base RPC（`mainnet.base.org`）、Li.Fi、Morpho、CoinGecko、Blockscout — 无需额外 key。
+**公用默认：** Base RPC（`mainnet.base.org`）、Li.Fi、Morpho、CoinGecko、Safe Transaction Service — 无需额外 key。
 
 **可选：** `EXPO_PUBLIC_API_BASE_URL`（自建后端：TrackFi / Dinari / 法币出入金，默认留空）；`EXPO_PUBLIC_LOGODEV_TOKEN`（更好图标）。
 

@@ -15,7 +15,7 @@ What the **mobile client** connects to — the trust boundary between on-device 
 | Type | Examples | Config / code |
 |------|----------|---------------|
 | **Required SaaS keys** | Reown; Privy only when a backend is configured | `.env` → `src/config/env.ts` |
-| **Public endpoints** | Base RPC, Pimlico public bundler, Li.Fi, Morpho, CoinGecko, Blockscout | Built-in defaults — no key |
+| **Public endpoints** | Base RPC, Pimlico public bundler, Li.Fi, Morpho, CoinGecko, Safe Transaction Service | Built-in defaults — no key |
 | **Optional SaaS keys** | Pimlico (USDC gas), logo.dev, CoinGecko / Li.Fi rate limits | `.env` |
 | **App backend (optional, self-hosted)** | Auth JWT, Plaid, DeBank, Dinari, fiat ramp, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` — empty by default |
 | **On-device only** | SCA signing, WC approval UI, SecureStore | `src/lib/wallet/`, `src/features/walletconnect/` |
@@ -52,7 +52,10 @@ What the **mobile client** connects to — the trust boundary between on-device 
 | Li.Fi | `https://li.quest/v1` | Swap + bridge; optional integrator (`LIFI_INTEGRATOR` + `LIFI_FEE`) / API key |
 | Morpho | `https://api.morpho.org/graphql` | Vault listings + APY; optional fee-wrapper via env |
 | CoinGecko | `https://api.coingecko.com/api/v3` | Prices / charts; optional Demo key |
-| Blockscout | `https://base.blockscout.com/api` | Wallet activity |
+| Safe Transaction Service | `https://api.safe.global/tx-service/base` | Wallet activity: the Smart Wallet's indexed ERC-20 transfers (it learns the wallet address) |
+| Base RPC logs | the Base RPC above, then `https://base-rpc.publicnode.com` | Wallet activity for a wallet that is not deployed yet, and the newest transfers. See `src/lib/chain/walletTransfers.ts` |
+
+Blockscout (`base.blockscout.com`) is now only opened as a link ("View on Blockscout"); its API answers apps with a Cloudflare challenge and is no longer called.
 
 Optional Pimlico API key ([dashboard.pimlico.io](https://dashboard.pimlico.io)) enables USDC gas via ERC-20 paymaster.
 
@@ -86,7 +89,7 @@ The hosted Kura backend is retired; its source is archived at [Kura-Finance/Back
 | 类型 | 例子 | 配置 |
 |------|------|------|
 | **必需 SaaS key** | WC；Privy 仅在接后端时需要 | `.env` |
-| **公用节点** | Base RPC、Pimlico 公开 bundler、Li.Fi、Morpho、CoinGecko、Blockscout | 内置默认，无需 key |
+| **公用节点** | Base RPC、Pimlico 公开 bundler、Li.Fi、Morpho、CoinGecko、Safe Transaction Service | 内置默认，无需 key |
 | **应用后端（可选，自建）** | 登录 JWT、Plaid、DeBank、Dinari、法币出入金 | `EXPO_PUBLIC_API_BASE_URL`，默认留空 |
 | **纯客户端** | 签名、WC UI、SecureStore | 钱包与 WC 模块 |
 | **可选** | Pimlico（USDC gas）、logo.dev | 未设置则 ETH gas / 字形 |

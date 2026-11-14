@@ -21,6 +21,7 @@ import type { ThemeColors } from '../../../shared/theme/theme';
 import { APP_PIN_LENGTH, isValidPinFormat, pinsMatch } from '../../../lib/security/appPinCore';
 import { verifyAppPin } from '../../../lib/security/appPin';
 import { appPinFailureMessage } from '../../../lib/security/authErrorMessages';
+import { isLocalSessionMode } from '../../../lib/auth/localSession';
 
 const CARD_LOGO = require('../../../../assets/card.webp');
 
@@ -146,6 +147,12 @@ export default function SetAppPinScreen({
   };
 
   const handleForgotPin = () => {
+    // On-device wallet: there is no account to sign back into. The caller asks
+    // "remove the wallet?" itself, so the sign-out wording here would be wrong.
+    if (isLocalSessionMode()) {
+      onForgotPin?.();
+      return;
+    }
     Alert.alert(t('auth.forgotAppPinTitle'), t('auth.forgotAppPinMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
