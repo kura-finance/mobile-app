@@ -81,3 +81,7 @@
 - [ ] `useKuraCardWallet` 的 `importWallet` 在刪掉 `ImportWalletScreen` 後已沒有任何呼叫端
 - [x] 首頁錢包設定失敗畫面的「再試一次」按鈕沒有作用：`useKuraCardWallet` 沒有重試的入口（改動前就是這樣）
       hook 新增 `retryProvision()`，按鈕會重跑一次錢包設定。沒有在實機上驗過
+- [x] **沒有 logo.dev 金鑰時代幣圖示全部變成 emoji／字母**：圖示只有 logo.dev 一個來源，而社群版預設沒有金鑰；備援的 Clearbit 也早已停止服務
+      新增 `src/config/tokenLogos.ts`（與 WebClients 的 `app/lib/tokenLogos.ts` 是同一份檔案，改一邊要同步另一邊）：39 個代幣與 6 條鏈各對應一個 CoinGecko 公開圖片 CDN 的固定網址，免金鑰。本來就向 CoinGecko 查價格，所以沒有多出新的第三方；每個使用者載入的網址都一樣，不會洩漏持有哪些資產。有設 logo.dev 金鑰時行為不變。Clearbit 備援已移除
+      已驗：單元測試（清單裡每個代幣在沒有金鑰時都有圖示）；模擬器的 Invest 頁 Cash／Crypto 清單都顯示真實圖示，`cb` 角標照舊。**沒驗到**：轉帳／跨鏈畫面的鏈圖示（只有測試）
+- [ ] 圖示的已知限制：(1) 股票、金庫管理人、清單以外的代幣（Morpho 的長尾抵押品）仍是字母；Morpho 自己的圖示是帶 `<style>` 的 SVG，react-native-svg 畫不出來；(2) 圖片網址寫死，CoinGecko 若改檔名該圖示會退回字母，離線時也是

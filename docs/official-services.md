@@ -19,7 +19,7 @@ What the **mobile client** connects to — the trust boundary between on-device 
 | **Optional SaaS keys** | Pimlico (USDC gas), logo.dev, CoinGecko / Li.Fi rate limits | `.env` |
 | **App backend (optional, self-hosted)** | Auth JWT, Plaid, DeBank, Dinari, fiat ramp, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` — empty by default |
 | **On-device only** | SCA signing, WC approval UI, SecureStore | `src/lib/wallet/`, `src/features/walletconnect/` |
-| **Optional CDN keys** | logo.dev | Unset → glyphs / Clearbit |
+| **Optional CDN keys** | logo.dev | Unset → keyless token logos, glyphs for the rest |
 
 ### Feature matrix
 
@@ -34,7 +34,7 @@ What the **mobile client** connects to — the trust boundary between on-device 
 | Dinari stocks | **Yes** | Feature flag `dinariStocks` | On when `hasAppBackend()` |
 | Morpho Earn | No | `morphoEarn` (SCA) | Direct Morpho by default; optional fee-wrapper via env |
 | Kura Card (waitlist UI) | No | — | Card manager + waitlist |
-| Logos | No | Optional `EXPO_PUBLIC_LOGODEV_TOKEN` | Glyphs / Clearbit without token |
+| Logos | No | Optional `EXPO_PUBLIC_LOGODEV_TOKEN` | Keyless token logos without token; glyphs for stocks |
 
 ### Required dashboards (no public substitute)
 
@@ -61,7 +61,7 @@ Optional Pimlico API key ([dashboard.pimlico.io](https://dashboard.pimlico.io)) 
 
 ### Optional: logo.dev
 
-Publishable key (`pk_…`) improves ticker/crypto logos. When unset, the UI uses glyphs; domain logos can fall back to Clearbit (`src/config/logodev.ts`).
+Publishable key (`pk_…`) improves ticker/crypto logos. When unset, listed tokens and chains use fixed images on CoinGecko's public image CDN (`src/config/tokenLogos.ts`); stocks, curators and unlisted tokens show a glyph.
 
 ### Official app defaults
 

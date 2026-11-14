@@ -126,9 +126,11 @@ Plaintext finance data should not persist unencrypted on device beyond active se
 | Sodium compat | `react-native-libsodium` (native), `libsodium-wrappers` (tests) |
 | SRP (if used) | `tssrp6a` |
 
-### Logos (logo.dev)
+### Logos
 
-[`src/config/logodev.ts`](../src/config/logodev.ts) — CDN URLs when `EXPO_PUBLIC_LOGODEV_TOKEN` is set. `logoDevImageSource()` attaches token and Referer for mobile.
+[`src/config/logodev.ts`](../src/config/logodev.ts) — logo.dev CDN URLs when `EXPO_PUBLIC_LOGODEV_TOKEN` is set. `logoDevImageSource()` attaches token and Referer for mobile.
+
+[`src/config/tokenLogos.ts`](../src/config/tokenLogos.ts) — without a key: fixed images on CoinGecko's public image CDN for the listed tokens and chains. The file is shared verbatim with WebClients (`app/lib/tokenLogos.ts`).
 
 ### Native config plugins
 

@@ -65,7 +65,7 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_PIMLICO_API_KEY` | USDC gas paymaster | Optional — without key: public bundler + ETH gas |
 | `EXPO_PUBLIC_BASE_RPC_URL` | On-chain reads | Defaults to free `https://mainnet.base.org` |
 | `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, fiat ramp, card, referrals, Privy login | Optional; empty (default) = on-chain only, on-device wallet, no Privy |
-| `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs / Clearbit if unset |
+| `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — keyless token logos if unset, glyphs for the rest |
 | `EXPO_PUBLIC_LIFI_API_KEY` | Li.Fi rate limits | Optional — public API works without key |
 | `EXPO_PUBLIC_LIFI_INTEGRATOR` + `EXPO_PUBLIC_LIFI_FEE` | Li.Fi integrator fee | Optional — both required to collect |
 | `EXPO_PUBLIC_COINGECKO_API_KEY` | Price rate limits | Optional — public API works without key |
