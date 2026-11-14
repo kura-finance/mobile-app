@@ -28,7 +28,6 @@ import {
   STANDARD_SECURE_STORE,
 } from '../../../lib/security/secureStoreOptions';
 import { useAuthSession, useSignerWallets } from '../../../lib/auth/authSession';
-import { isLocalSessionMode } from '../../../lib/auth/localSession';
 import {
   getGlobalProvisionedSca,
   getGlobalProvisionPromise,
@@ -93,6 +92,7 @@ import type {
   UseKuraCardWalletReturn,
   WalletStatus,
 } from './kuraCardWallet/types';
+import { features } from '../../../config/features';
 
 export type {
   ImportMnemonicType,
@@ -154,7 +154,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const refreshBalance = refreshBalances;
 
   const resolveSmartAccountClient = useCallback<ResolveSmartAccountClient>(async () => {
-    if (isLocalSessionMode()) {
+    if (!features.backend) {
       // No Privy: the owner key is stored on this device.
       return resolveKuraSmartAccountClient(noEmbeddedProvider);
     }
@@ -320,7 +320,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       }
     }
 
-    if (isLocalSessionMode()) {
+    if (!features.backend) {
       void provisionLocal();
     } else {
       provision();

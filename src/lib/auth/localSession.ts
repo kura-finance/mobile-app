@@ -3,11 +3,12 @@
  *
  * Holds the id of the wallet on this device and its on-device profile overlay
  * so the app store can build a profile without a backend. Only used when
- * EXPO_PUBLIC_API_BASE_URL is empty — see {@link isLocalSessionMode}.
+ * `features.backend` is off (EXPO_PUBLIC_API_BASE_URL is empty): the app then
+ * runs without Privy, the wallet key lives on this device and its presence is
+ * the session.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasAppBackend } from '../../config/env';
 import type { UserProfileV1 } from '../api/auth/schemas';
 import Logger from '../../shared/utils/Logger';
 import {
@@ -24,14 +25,6 @@ let currentUserId: string | null = null;
 let currentOverlay: LocalProfileOverlay = {};
 /** Resolves once the overlay for {@link currentUserId} has been read from disk. */
 let overlayLoaded: Promise<void> = Promise.resolve();
-
-/**
- * True when no app backend is configured. The app then runs without Privy:
- * the wallet key lives on this device and its presence is the session.
- */
-export function isLocalSessionMode(): boolean {
-  return !hasAppBackend();
-}
 
 function overlayKey(userId: string): string {
   return `${OVERLAY_KEY_PREFIX}${userId}`;

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../../../shared/store/useAppStore';
-import { hasAppBackend } from '../../../config/env';
 import {
   getWaitlistStatus,
   joinWaitlist,
   type WaitlistProduct,
 } from '../../../lib/api/waitlist';
+import { features } from '../../../config/features';
 
 const STATUS_CACHE_TTL_MS = 5 * 60 * 1000;
 const statusCache = new Map<string, { joined: boolean; expiresAt: number }>();
@@ -47,7 +47,7 @@ export function useWaitlistJoin(
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!enabled || !hasAppBackend() || !hasRealEmail) {
+    if (!enabled || !features.card || !hasRealEmail) {
       setJoined(false);
       setChecking(false);
       return;
@@ -81,7 +81,7 @@ export function useWaitlistJoin(
   }, [enabled, email, hasRealEmail, product]);
 
   const join = useCallback(async () => {
-    if (!hasAppBackend()) {
+    if (!features.card) {
       throw new Error('WAITLIST_UNAVAILABLE');
     }
     if (!hasRealEmail) {
@@ -110,6 +110,6 @@ export function useWaitlistJoin(
     checking,
     submitting,
     hasRealEmail,
-    backendAvailable: hasAppBackend(),
+    backendAvailable: features.card,
   };
 }

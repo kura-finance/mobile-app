@@ -85,3 +85,8 @@
       新增 `src/config/tokenLogos.ts`（與 WebClients 的 `app/lib/tokenLogos.ts` 是同一份檔案，改一邊要同步另一邊）：39 個代幣與 6 條鏈各對應一個 CoinGecko 公開圖片 CDN 的固定網址，免金鑰。本來就向 CoinGecko 查價格，所以沒有多出新的第三方；每個使用者載入的網址都一樣，不會洩漏持有哪些資產。有設 logo.dev 金鑰時行為不變。Clearbit 備援已移除
       已驗：單元測試（清單裡每個代幣在沒有金鑰時都有圖示）；模擬器的 Invest 頁 Cash／Crypto 清單都顯示真實圖示，`cb` 角標照舊。**沒驗到**：轉帳／跨鏈畫面的鏈圖示（只有測試）
 - [ ] 圖示的已知限制：(1) 股票、金庫管理人、清單以外的代幣（Morpho 的長尾抵押品）仍是字母；Morpho 自己的圖示是帶 `<style>` 的 SVG，react-native-svg 畫不出來；(2) 圖片網址寫死，CoinGecko 若改檔名該圖示會退回字母，離線時也是
+- [x] 「有沒有後端」有三種問法並存：`features.backend`、`hasAppBackend()`（7 個檔案 12 處）、`isLocalSessionMode()`（8 個檔案）
+      全部改成 `src/config/features.ts` 的旗標，`isLocalSessionMode()` 已刪除；`src/config` 以外不再有人呼叫 `hasAppBackend()`。兩種模式共用卻叫 Privy 的名稱一併改掉：`setPrivySession` → `setAuthSession`、`privyLogout` → `endSession`、`hasPrivyUser` → `hasUser`，`useAppStore.ts` 的檔頭與過時註解重寫。行為不變；模擬器上重跑過解鎖進首頁。**沒重跑**：建立錢包、移除錢包
+- [x] Kura 標誌在深色主題下看不見（App PIN、設定 PIN、Face ID、登入四個畫面）：標誌是深色線條配透明背景
+      深色主題下用 `tintColor` 改成文字色；模擬器上驗過 App PIN 畫面，其餘三個畫面是同一個寫法但沒有逐一看
+- [ ] 切換寫法還沒整理的部分：(1) `useAppStore.ts`（7 處）、`App.tsx`（7 處）、`useKuraCardWallet.ts`（2 處）裡仍是就地的 `if (features.backend)`，比較乾淨的做法是把 session 來源做成一個物件、兩個實作，改完要重跑建立／解鎖／移除錢包；(2) 無後端時仍打包 Privy SDK（`authSession.ts` 靜態 import）

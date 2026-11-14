@@ -67,7 +67,7 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
   const saveAppPin = useAppStore((state) => state.saveAppPin);
   const changeAppPin = useAppStore((state) => state.changeAppPin);
   const refreshAppPinStatus = useAppStore((state) => state.refreshAppPinStatus);
-  const { logout: privyLogout } = useAuthSession();
+  const { logout: endSession } = useAuthSession();
   const disableScreenshot = useAppStore((state) => state.preferences.disableScreenshot);
   const hideBalance = useAppStore((state) => state.preferences.hideBalance);
   const biometricUnlockEnabled = useAppStore((state) => state.preferences.biometricUnlockEnabled);
@@ -117,7 +117,7 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
             // the user confirms that (logout asks) — clearing it first would
             // let anyone holding the unlocked app drop the PIN, back out, set
             // a new one and read the recovery phrase.
-            if (await privyLogout()) {
+            if (await endSession()) {
               setShowSetPin(false);
               onClose();
             }
@@ -127,7 +127,7 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
           await refreshAppPinStatus();
           setShowSetPin(false);
           onClose();
-          void privyLogout();
+          void endSession();
         }}
         onSubmit={async (pin, currentPin) => {
           setPinSubmitting(true);
@@ -152,12 +152,12 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
 
   /** No backend: there is no account, only the key on this device. logout() confirms first. */
   const handleRemoveWallet = async () => {
-    if (await privyLogout()) onClose();
+    if (await endSession()) onClose();
   };
 
   const handleDeleteSuccess = () => {
     onClose();
-    void privyLogout();
+    void endSession();
   };
 
   const ROW_STYLE = {

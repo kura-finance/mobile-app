@@ -8,7 +8,6 @@
 
 import i18n from '../../../shared/locales/i18n';
 import { readAuthToken } from '../../../lib/api/client';
-import { hasAppBackend } from '../../../config/env';
 import { filterWalletTxsForDisplay } from '../utils/walletTxFilter';
 import { enrichWalletActivities } from '../utils/walletTxEnrichment';
 import { reconcileBridgeAndChainTxs } from '../utils/walletTxBridgeDedup';
@@ -27,6 +26,7 @@ import {
   type TransferLogRow,
   type TransferLogToken,
 } from '../../../lib/chain/walletTransfers';
+import { features } from '../../../config/features';
 
 /** Safe Transaction Service for Base (keyless, rate-limited). */
 const SAFE_TX_SERVICE_URL = 'https://api.safe.global/tx-service/base';
@@ -380,7 +380,7 @@ function stopPoll(engine: AddressEngine): void {
 function startPoll(engine: AddressEngine): void {
   stopPoll(engine);
   // Bridge (fiat ramp) activity only exists on the app backend — nothing to poll without it.
-  if (!hasAppBackend()) return;
+  if (!features.fiatRamp) return;
   const token = readAuthTokenSync();
   if (!token) return;
   const intervalMs = resolveBridgePollIntervalMs(engine.bridgeMeta);
@@ -388,7 +388,7 @@ function startPoll(engine: AddressEngine): void {
 }
 
 async function fetchBridge(engine: AddressEngine, options?: { force?: boolean }): Promise<void> {
-  if (!hasAppBackend()) return;
+  if (!features.fiatRamp) return;
   if (engine.bridgeFetchInFlight) return;
   const token = await readAuthToken();
   if (!token) return;

@@ -20,7 +20,8 @@ import {
 import i18n from '../../shared/locales/i18n';
 import Logger from '../../shared/utils/Logger';
 import { removeLocalWallet, useLocalWalletStore } from '../wallet/localWallet';
-import { isLocalSessionMode, localUserId } from './localSession';
+import { localUserId } from './localSession';
+import { features } from '../../config/features';
 
 export interface AuthSession {
   /** False until the session source has finished initialising. */
@@ -85,9 +86,9 @@ function useLocalAuthSession(): AuthSession {
   };
 }
 
-export const useAuthSession: () => AuthSession = isLocalSessionMode()
-  ? useLocalAuthSession
-  : usePrivyAuthSession;
+export const useAuthSession: () => AuthSession = features.backend
+  ? usePrivyAuthSession
+  : useLocalAuthSession;
 
 export interface SignerWallets {
   /** Privy embedded EOAs. Always empty without a backend — the key is on the device. */
@@ -109,6 +110,6 @@ function useLocalSignerWallets(): SignerWallets {
   return LOCAL_SIGNER_WALLETS;
 }
 
-export const useSignerWallets: () => SignerWallets = isLocalSessionMode()
-  ? useLocalSignerWallets
-  : usePrivySignerWallets;
+export const useSignerWallets: () => SignerWallets = features.backend
+  ? usePrivySignerWallets
+  : useLocalSignerWallets;
