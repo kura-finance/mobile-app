@@ -35,6 +35,7 @@
 
 - [x] 同一組助記詞在手機與網頁顯示同一個 Safe 地址
       模擬器上新建錢包顯示的 EOA 與 Safe 地址，和用同一組助記詞以 WebClients 的推導方式算出來的完全相同
+      2026-11-15 補做：手機（模擬器）與網頁實際各匯入一次 `abandon … about`，兩邊都顯示 `0xf78B124D0f676153b37b7852658B5000b390984B`
 - [x] 對真實鏈跑一次比對腳本，兩邊輸出相同：
       `node scripts/safe-address-parity.cjs . https://mainnet.base.org`
       `node scripts/safe-address-parity.cjs ../WebClients https://mainnet.base.org`
@@ -47,11 +48,17 @@
 
 ## 4. 發佈
 
-- [ ] GitHub → Settings → Code security → CodeQL analysis（Default setup）→ Edit：把 **JavaScript/TypeScript** 加進語言。目前預設掃描只涵蓋 `actions`；repo 裡的自訂 CodeQL workflow 因為和預設掃描衝突，從九月底起每次上傳結果都被拒，已在這個分支移除
+- [x] CodeQL 預設掃描只涵蓋 `actions`，要把 **JavaScript/TypeScript** 加進語言
+      2026-11-15 用 GitHub API 送出設定變更（`javascript-typescript`），GitHub 的「CodeQL Setup」工作跑完且成功，語言清單現在是 actions、javascript、javascript-typescript、typescript。WebClients 本來就有
 
 - [ ] 打包時 `EXPO_PUBLIC_API_BASE_URL` 留空；Privy 金鑰不需要
 - [ ] 更新商店的隱私與資料收集聲明（不再有帳戶、不再收集 email）
+      草稿在 `docs/store-release.md` 第 3、4 節：無後端版會把什麼送給哪些第三方、App Store 與 Google Play 表單建議的答案。**表單要你本人填**；官網的隱私權政策不在這個 repo 裡，也要改
 - [ ] 上架說明／App 內公告：舊用戶更新前先到 home.privy.io 匯出私鑰；助記詞遺失無法找回
+      中英文公告與 release notes 短版寫在 `docs/store-release.md` 第 1、2 節，含發佈順序。**公告裡「地址與資金不變」要等下面「舊用戶搬遷」用真實帳號驗過才能發**
+- [ ] `app.config.js` 仍宣告只有後端功能會用到的權限（麥克風、定位、區域網路），用途文字還寫著身分驗證；和「不收集身分資料」的聲明矛盾，審核可能會問。要依後端網址決定是否宣告，並在實機上重測 release build，還沒做（`docs/store-release.md` 第 5 節）
+- [x] 文件有 5 處寫「官方後端已停用（retired）」（README、`docs/handover.md`、`official-services.md`、`local-release.md`、`transparency.md`），但後端目前仍在線上
+      改成「仍服務目前上架的版本，預計 2027 年停機」。真正停機後，這 5 處要再改回「已停用」
 - [ ] Privy app 保留到沒有人需要匯出私鑰為止
 
 ## 5. 之後再做
@@ -77,8 +84,10 @@
       - 還沒部署的錢包不可能轉出過，所以收款加總等於餘額就代表紀錄完整；沒有任何餘額就完全不掃
       已驗：單元測試 22 個；對真實服務實測（已部署的 Safe 第一頁 7 個請求、列出全部收付款）；模擬器上新錢包首頁顯示「No transactions yet」、沒有錯誤。**沒驗到**：模擬器上有紀錄的錢包的實際畫面（需要有資金的錢包）
 - [ ] 交易紀錄的已知限制：(1) 還沒部署、且收款超過約 7 天的錢包，在第一次轉出前看不到那筆收款；(2) 原生 ETH 轉帳不列出（和以前一樣）；(3) Safe Transaction Service 目前免金鑰、有流量上限，官方若改成必須帶 key 就要申請或換來源
-- [ ] Portfolio 空狀態寫「tokens and stocks」，無後端時沒有股票
-- [ ] `useKuraCardWallet` 的 `importWallet` 在刪掉 `ImportWalletScreen` 後已沒有任何呼叫端
+- [x] Portfolio 空狀態寫「tokens and stocks」，無後端時沒有股票
+      沒有股票功能時改顯示「…to find tokens.」（新增 `crypto.portfolioEmptyTokensOnly`，中英文都有）；模擬器上看過
+- [x] `useKuraCardWallet` 的 `importWallet` 在刪掉 `ImportWalletScreen` 後已沒有任何呼叫端
+      已從 hook 與型別移除。讀取舊版匯入金鑰的路徑沒有動（有後端的舊用戶仍可能用到）
 - [x] 首頁錢包設定失敗畫面的「再試一次」按鈕沒有作用：`useKuraCardWallet` 沒有重試的入口（改動前就是這樣）
       hook 新增 `retryProvision()`，按鈕會重跑一次錢包設定。沒有在實機上驗過
 - [x] **沒有 logo.dev 金鑰時代幣圖示全部變成 emoji／字母**：圖示只有 logo.dev 一個來源，而社群版預設沒有金鑰；備援的 Clearbit 也早已停止服務
@@ -90,3 +99,6 @@
 - [x] Kura 標誌在深色主題下看不見（App PIN、設定 PIN、Face ID、登入四個畫面）：標誌是深色線條配透明背景
       深色主題下用 `tintColor` 改成文字色；模擬器上驗過 App PIN 畫面，其餘三個畫面是同一個寫法但沒有逐一看
 - [ ] 切換寫法還沒整理的部分：(1) `useAppStore.ts`（7 處）、`App.tsx`（7 處）、`useKuraCardWallet.ts`（2 處）裡仍是就地的 `if (features.backend)`，比較乾淨的做法是把 session 來源做成一個物件、兩個實作，改完要重跑建立／解鎖／移除錢包；(2) 無後端時仍打包 Privy SDK（`authSession.ts` 靜態 import）
+- [x] 整理切換寫法後重跑登入流程（2026-11-15，模擬器，深色主題）
+      冷啟動要求 PIN → 「忘記 PIN」直接出現移除確認 → 取消後錯的 PIN 仍被擋下 → 確認移除後回到歡迎畫面 → 匯入參考助記詞（`abandon … about`）→ 設定 PIN → 首頁；之後再移除一次並走「建立新錢包」到首頁。全部通過
+- [ ] 測試曾經偶發失敗一次（359 個裡 1 個），沒抓到是哪一個；之後單獨跑 9 次、兩個同時跑 60 次都全數通過，無法重現。當時同一時間正在關閉 Metro

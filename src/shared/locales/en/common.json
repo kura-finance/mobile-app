@@ -842,6 +842,7 @@
     "portfolio": "Portfolio",
     "invest": "Invest",
     "portfolioEmpty": "You don't hold any assets yet. Explore Invest to find tokens and stocks.",
+    "portfolioEmptyTokensOnly": "You don't hold any assets yet. Explore Invest to find tokens.",
     "portfolioAssets": "Assets",
     "hideSmallBalances": "Hide small balances",
     "viewAllAssets": "View all assets",

@@ -842,6 +842,7 @@
     "portfolio": "投資組合",
     "invest": "投資",
     "portfolioEmpty": "你目前沒有任何持倉。前往投資頁面瀏覽代幣與股票。",
+    "portfolioEmptyTokensOnly": "你目前沒有任何持倉。前往投資頁面瀏覽代幣。",
     "portfolioAssets": "資產",
     "hideSmallBalances": "隱藏小額餘額",
     "viewAllAssets": "查看全部資產",

@@ -24,7 +24,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import {
-  IMPORTED_KEY_SECURE_STORE,
   STANDARD_SECURE_STORE,
 } from '../../../lib/security/secureStoreOptions';
 import { useAuthSession, useSignerWallets } from '../../../lib/auth/authSession';
@@ -37,7 +36,6 @@ import {
 import { getUsableAuthToken, useSessionUsable } from '../../../lib/security/sessionAccess';
 import {
   WALLET_ADDRESS_STORE_KEY,
-  WALLET_IMPORTED_KEY,
 } from '../config/cardWalletConfig';
 import { fetchWalletRecord, saveScaAddress, saveEoaAddress } from '../../../lib/api/wallet/client';
 import Logger from '../../../shared/utils/Logger';
@@ -538,27 +536,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     return signTypedDataTx(resolveSmartAccountClient, typedData);
   }, [requireReady, resolveSmartAccountClient]);
 
-  const importWallet = useCallback(async (phrase: string, type: ImportMnemonicType) => {
-    setStatus('provisioning');
-    setErrorMessage('');
-    try {
-      const privKey = privateKeyFromMnemonic(phrase, type);
-      const { smartAddress: addr } = await buildSmartAccountClientFromPrivKey(privKey);
-      await SecureStore.setItemAsync(WALLET_IMPORTED_KEY, privKey, IMPORTED_KEY_SECURE_STORE);
-      await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr, STANDARD_SECURE_STORE);
-      await saveScaAddress(addr).catch(() => undefined);
-      setSmartAddress(addr);
-      setStatus('ready');
-      provisionedScaRef.current = addr;
-      setGlobalProvisionedSca(addr);
-      await refreshBalances({ address: addr });
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : i18n.t('card.importFailedShort'));
-      setStatus('error');
-      throw err;
-    }
-  }, [refreshBalances]);
-
   return useMemo(() => ({
     status,
     smartAddress,
@@ -573,7 +550,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     isExecutingSwap,
     isExecutingEarn,
     isExecutingBorrow,
-    importWallet,
     retryProvision,
     refreshBalance,
     sendUsdc,
@@ -610,7 +586,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     isExecutingSwap,
     isExecutingEarn,
     isExecutingBorrow,
-    importWallet,
     retryProvision,
     refreshBalance,
     sendUsdc,

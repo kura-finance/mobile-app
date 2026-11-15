@@ -71,7 +71,7 @@ Production store builds leave the backend URL empty — the app is on-chain only
 EXPO_PUBLIC_API_BASE_URL=
 ```
 
-The hosted Kura backend is retired; its source is archived at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer) for anyone who wants to self-host. See [local-release.md](local-release.md).
+The hosted Kura backend still serves the current store release and is scheduled to shut down in 2027; its source is at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer) for anyone who wants to self-host. See [local-release.md](local-release.md).
 
 ### Forking
 

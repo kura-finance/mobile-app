@@ -29,7 +29,7 @@ Copyright in this repository is **Rick Weng**. The Kura product is operated by *
 - [ ] Android release keystore + passwords (never in git)
 - [ ] Reown dashboard (required); Privy dashboard (only with a backend — and keep the Privy app alive while former users still need to export their keys at home.privy.io); optional Pimlico (USDC gas) / logo.dev / Li.Fi / CoinGecko
 - [ ] Domains + AASA / App Links / passkey RP ID (`brand.webCredentialsHost`)
-- [ ] Self-hosted backend repo / ops (only if you run one — the hosted Kura backend is retired)
+- [ ] Self-hosted backend repo / ops (the hosted Kura backend runs until its shutdown in 2027; after that, only if you run one)
 - [ ] Legal pages on `brand.homepage` (`/tos`, `/privacy`, …)
 - [ ] Production `.env` values — then **rotate** per [secrets-rotation.md](secrets-rotation.md)
 

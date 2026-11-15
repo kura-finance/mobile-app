@@ -6,7 +6,7 @@
 
 > **MIT open source** — copyright [Rick Weng](LICENSE); operated by **Kura Finance LLC**.  
 > Third-party marks and partner assets: [NOTICE](NOTICE).  
-> **No backend needed.** The hosted Kura backend has been retired; its source is archived at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer). Self-host it and set `EXPO_PUBLIC_API_BASE_URL` to turn the backend features back on.
+> **No backend needed.** Leave `EXPO_PUBLIC_API_BASE_URL` empty and the app runs entirely on-chain. The hosted Kura backend still serves the current store release and is scheduled to shut down in 2027; its source is at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer). Point `EXPO_PUBLIC_API_BASE_URL` at it, or at your own copy, to turn the backend features on.
 
 **[Documentation hub →](docs/README.md)** · [Trust model](docs/transparency.md) · [Threat model](docs/threat-model.md) · [Report a vulnerability](SECURITY.md)
 

@@ -50,7 +50,7 @@ EXPO_PUBLIC_API_BASE_URL=          # empty = on-chain only (default)
 # … all production EXPO_PUBLIC_* keys
 ```
 
-The official app ships without a backend (the hosted Kura backend is retired). Set `EXPO_PUBLIC_API_BASE_URL` only if you run your own backend. Without one there are no accounts and no Privy keys are needed: the wallet key lives on the device.
+The on-chain build ships without a backend. The hosted Kura backend still serves the current store release until its shutdown in 2027; set `EXPO_PUBLIC_API_BASE_URL` only for a backend build (that one, or your own). Without one there are no accounts and no Privy keys are needed: the wallet key lives on the device.
 
 Bump version in [`app.config.js`](../app.config.js) (`version`), then after prebuild sync native codes:
 

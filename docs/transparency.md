@@ -34,7 +34,7 @@ Local setup: [Getting started](getting-started.md).
 
 | Component | Status | Implication |
 |-----------|--------|-------------|
-| App backend | Retired as a hosted service; source archived at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer) | Optional and self-hosted: auth JWT exchange, Plaid/DeBank proxies, encrypted snapshot storage |
+| App backend | Hosted until its shutdown in 2027 (serves the current store release); source at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer) | Optional and self-hosted: auth JWT exchange, Plaid/DeBank proxies, encrypted snapshot storage |
 | Privy, Pimlico, Reown infrastructure | Third-party | Auth, bundling, and WC relay |
 | Base chain & smart contracts | Public chain | On-chain behaviour is verifiable separately |
 | Store signing keys | Never in git | Keystores and `.env` stay on maintainer machines |
