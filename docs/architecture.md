@@ -147,6 +147,51 @@ Applied on every `expo prebuild`.
 - **Zustand** — `useAppStore`, finance slices, exchange store
 - **React Navigation** — tab + stack under `src/shared/navigation/`
 
+### Known limitations
+
+Deliberate gaps, each with what it would take to close it.
+
+**Privy SDK is bundled without a backend.** The on-chain build never loads it,
+but `App.tsx` and `src/lib/auth/authSession.ts` import it statically, so it is in
+the bundle. Dropping it means swapping the module for a stub in Metro when
+`EXPO_PUBLIC_API_BASE_URL` is empty. A wrong swap crashes the app at launch and
+only shows on a device, so do it after the on-device checks in
+[store-release.md](store-release.md) §6. The web client already does this with a
+build-time alias.
+
+**The backend switch is still inline in places.** `useAppStore.ts` (7),
+`App.tsx` (7) and `useKuraCardWallet.ts` (2) branch on `features.backend` where
+they are. Cleaner: one session-source object with two implementations (Privy +
+backend, on-device key). Afterwards, rerun create / unlock / remove wallet in
+both modes.
+
+**Transaction history** (`src/lib/chain/walletTransfers.ts`, shared verbatim
+with WebClients):
+
+- Native ETH transfers are not listed — gas prefunds would fill the list.
+- The Safe Transaction Service is used without a key and is rate-limited. If it
+  starts requiring one, get a key or change source.
+- An undeployed wallet's receipts are found from its balance history. That needs
+  an RPC serving past state (mainnet.base.org, drpc); under sustained rate
+  limiting, or for a token whose balance changes without a Transfer, it falls
+  back to scanning about the last week of logs. Up to 25 receipts per token.
+- Amounts of volatile tokens (WETH, cbBTC…) and of stablecoins without an
+  exchange rate (XSGD, AUDD) show as token quantities: there is no price at the
+  time of each transfer.
+
+**Icons.** Stocks, vault curators and tokens outside the list (Morpho's long-tail
+collateral) show letters; Morpho's own icons are SVGs with `<style>`, which
+react-native-svg cannot draw. The CoinGecko image URLs are fixed: a renamed file,
+or no network, falls back to letters.
+
+**Stock list loads slowly** (about 30 s): `StocksView` waits for a Yahoo quote for
+every listed symbol before showing the list. Fetching quotes for the visible page
+only would fix it.
+
+**One unexplained test failure.** Once, 1 of 359 tests failed while Metro was
+shutting down; 69 later runs, alone and in parallel, all passed. If it comes
+back, note which test.
+
 ---
 
 ## 中文
@@ -187,5 +232,9 @@ Passkey 解锁 DEK → 拉取密文 → `envelope.ts` 解密 → Zustand → UI�
 ### 状态
 
 Zustand + React Navigation。
+
+### 已知限制
+
+详见英文 “Known limitations”：无后端时仍打包 Privy SDK；后端开关在 `useAppStore.ts`、`App.tsx`、`useKuraCardWallet.ts` 仍就地判断；交易记录不列原生 ETH、Safe 服务免金钥有流量上限、未部署钱包靠余额历史找收款（失败时退回只扫约一周）、非稳定币显示代币数量；长尾代币图示为字母；股票列表约 30 秒才载入；曾有一次无法重现的测试失败。
 
 详细威胁与信任：[threat-model.md](threat-model.md)
