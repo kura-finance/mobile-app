@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  formatTxDetailAmount,
   formatTxListAmount,
   formatTxProcessedWith,
   getTxSubtitleLines,
@@ -99,6 +100,20 @@ describe('getTxUsdValue', () => {
     expect(getTxUsdValue(tx({ direction: 'out', amount: 100, tokenSymbol: 'USDC' }))).toBe(100);
   });
 
+  test('has no value for a volatile token: its amount is not dollars', () => {
+    expect(getTxUsdValue(tx({ direction: 'in', amount: 0.00008, tokenSymbol: 'WETH' }))).toBeNull();
+    expect(getTxUsdValue(tx({ direction: 'in', amount: 2, tokenSymbol: 'cbBTC' }))).toBeNull();
+  });
+
+  test('converts a euro stablecoin through the EUR rate', () => {
+    // No live rates in tests: the fallback is 1 USD = 0.92 EUR.
+    expect(getTxUsdValue(tx({ direction: 'in', amount: 92, tokenSymbol: 'EURC' }))).toBeCloseTo(100, 6);
+  });
+
+  test('has no value for a stablecoin of a currency without a rate', () => {
+    expect(getTxUsdValue(tx({ direction: 'in', amount: 10, tokenSymbol: 'XSGD' }))).toBeNull();
+  });
+
   test('fiat on-ramp uses credited USDC when Bridge provides it', () => {
     expect(
       getTxUsdValue(
@@ -162,10 +177,19 @@ describe('shouldShowTxTokenQuantity', () => {
     ).toBe(false);
   });
 
-  test('uses fiat for receive/send', () => {
+  test('uses fiat for receive/send of a dollar stablecoin', () => {
+    expect(
+      shouldShowTxTokenQuantity(tx({ activityKind: 'receive', direction: 'in', tokenSymbol: 'USDC' })),
+    ).toBe(false);
+  });
+
+  test('shows token qty for receive/send of a token without a known value', () => {
     expect(
       shouldShowTxTokenQuantity(tx({ activityKind: 'receive', direction: 'in', tokenSymbol: 'WETH' })),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldShowTxTokenQuantity(tx({ direction: 'out', tokenSymbol: 'XSGD' })),
+    ).toBe(true);
   });
 });
 
@@ -200,6 +224,44 @@ describe('formatTxListAmount', () => {
       (v) => `$${v.toFixed(2)}`,
     );
     expect(label).toBe('+$50.00');
+  });
+
+  test('formats a received volatile token as its quantity, not as dollars', () => {
+    const label = formatTxListAmount(
+      tx({ activityKind: 'receive', direction: 'in', tokenSymbol: 'WETH', amount: 0.00008 }),
+      (v) => `$${v.toFixed(2)}`,
+    );
+    expect(label).toBe('+0.000080 WETH');
+  });
+
+  test('formats a received euro stablecoin in dollars', () => {
+    const label = formatTxListAmount(
+      tx({ activityKind: 'receive', direction: 'in', tokenSymbol: 'EURC', amount: 0.0899 }),
+      (v) => `$${v.toFixed(3)}`,
+    );
+    expect(label).toBe('+$0.098');
+  });
+});
+
+describe('formatTxDetailAmount', () => {
+  test('shows the base-currency value with its code', () => {
+    expect(
+      formatTxDetailAmount(
+        tx({ activityKind: 'receive', direction: 'in', tokenSymbol: 'USDC', amount: 5 }),
+        (v) => `$${v.toFixed(2)}`,
+        'USD',
+      ),
+    ).toBe('+$5.00 USD');
+  });
+
+  test('shows the token quantity when the value is unknown', () => {
+    expect(
+      formatTxDetailAmount(
+        tx({ activityKind: 'receive', direction: 'in', tokenSymbol: 'WETH', amount: 0.00008 }),
+        (v) => `$${v.toFixed(2)}`,
+        'USD',
+      ),
+    ).toBe('+0.000080 WETH');
   });
 });
 
