@@ -31,10 +31,12 @@ import { features } from '../../../config/features';
 /** Safe Transaction Service for Base (keyless, rate-limited). */
 const SAFE_TX_SERVICE_URL = 'https://api.safe.global/tx-service/base';
 /**
- * Added after the configured RPCs for history only: it serves `eth_getLogs`
- * over wider block ranges than most public endpoints.
+ * Added after the configured RPCs for history only. publicnode serves
+ * `eth_getLogs` over wider block ranges than most public endpoints; drpc
+ * serves balances at past blocks, which finds an undeployed wallet's receipts
+ * (publicnode wants a key for that, and mainnet.base.org rate-limits it).
  */
-const LOGS_FALLBACK_RPC_URL = 'https://base-rpc.publicnode.com';
+const HISTORY_FALLBACK_RPC_URLS = ['https://base-rpc.publicnode.com', 'https://base.drpc.org'];
 const PAGE_SIZE = 20;
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
@@ -85,7 +87,7 @@ function createTransferHistory(smartAddress: string): WalletTransferHistory {
   return new WalletTransferHistory({
     address: checksum(smartAddress),
     tokens: HISTORY_TOKENS,
-    rpcUrls: [...new Set([...getBaseRpcUrls(), LOGS_FALLBACK_RPC_URL])],
+    rpcUrls: [...new Set([...getBaseRpcUrls(), ...HISTORY_FALLBACK_RPC_URLS])],
     safeServiceUrl: SAFE_TX_SERVICE_URL,
   });
 }

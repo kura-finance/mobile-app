@@ -45,6 +45,25 @@ interface FakeRpcOptions {
   deployed?: boolean;
   /** Token balances of the wallet by lower-case token address. Default: none. */
   balances?: Record<string, bigint>;
+  /**
+   * Serve balances at past blocks, computed from `transfers` (plus `extraAt`).
+   * Default: past blocks fail, as on a node without archive state.
+   */
+  archive?: boolean;
+  /** Balance changes no Transfer explains (a rebasing token), by block. */
+  extraAt?: { block: number; value: bigint }[];
+}
+
+/** The wallet's balance of `token` at the end of `block`, from the fake chain. */
+function balanceAt(options: FakeRpcOptions, token: string, block: number): bigint {
+  let balance = 0n;
+  for (const t of options.transfers) {
+    if (t.block > block || t.nft || (t.token ?? USDC.address).toLowerCase() !== token) continue;
+    if (t.to.toLowerCase() === WALLET.toLowerCase()) balance += t.value;
+    if (t.from.toLowerCase() === WALLET.toLowerCase()) balance -= t.value;
+  }
+  for (const e of options.extraAt ?? []) if (e.block <= block) balance += e.value;
+  return balance;
 }
 
 type HttpResponse = Awaited<ReturnType<HttpFetch>>;
@@ -81,7 +100,10 @@ function fakeRpc(options: FakeRpcOptions) {
     if (method === 'eth_call') {
       calls.push({ url, method });
       const token = (params[0] as { to: string }).to.toLowerCase();
-      return reply({ result: hex(options.balances?.[token] ?? 0n) });
+      const at = params[1] as string;
+      if (at === 'latest') return reply({ result: hex(options.balances?.[token] ?? 0n) });
+      if (!options.archive) return reply({ error: { message: 'missing trie node' } });
+      return reply({ result: hex(balanceAt(options, token, Number.parseInt(at, 16))) });
     }
     if (method === 'eth_getBlockByNumber') {
       calls.push({ url, method });
@@ -474,6 +496,157 @@ describe('WalletTransferHistory', () => {
     expect(page.rows.map((r) => r.value)).toEqual(['2000000']);
     expect(page.hasMore).toBe(true);
     expect(page.coveredBackToMs).toBe(blockTime(HEAD - 500_000 + 1) * 1000);
+  });
+
+  describe('undeployed Safe with an RPC that serves past state', () => {
+    const undeployed = (over: Partial<FakeRpcOptions>) => {
+      const options: FakeRpcOptions = {
+        maxSpanByUrl: { 'https://rpc.example': 50_000 },
+        transfers: [],
+        safeService: safeServiceWith([]),
+        deployed: false,
+        archive: true,
+        ...over,
+      };
+      options.balances = {
+        [USDC.address.toLowerCase()]: balanceAt(options, USDC.address.toLowerCase(), HEAD),
+      };
+      return fakeRpc(options);
+    };
+
+    it('finds every receipt from the balance history, however old', async () => {
+      const { fetchFn, calls } = undeployed({
+        transfers: [
+          { block: 12, logIndex: 0, from: OTHER, to: WALLET, value: 1_000_000n },
+          { block: 640_321, logIndex: 4, from: OTHER, to: WALLET, value: 2_000_000n },
+          { block: HEAD - 3, logIndex: 1, from: OTHER, to: WALLET, value: 3_000_000n },
+        ],
+      });
+      const wallet = history(fetchFn);
+
+      const page = await wallet.nextPage(20);
+
+      expect(page.rows.map((r) => [r.blockNumber, r.value])).toEqual([
+        [HEAD - 3, '3000000'],
+        [640_321, '2000000'],
+        [12, '1000000'],
+      ]);
+      expect(page.rows[1].timestamp).toBe(blockTime(640_321));
+      expect(page.hasMore).toBe(false);
+      expect(page.coveredBackToMs).toBe(0);
+      // No range scan: only the one block of each receipt is read.
+      expect(calls.filter((c) => c.method === 'eth_getLogs').map((c) => c.span)).toEqual([1, 1, 1]);
+      // A few dozen balance reads per receipt, not one per block.
+      expect(calls.filter((c) => c.method === 'eth_call').length).toBeLessThan(3 * 45);
+    });
+
+    it('lists receipts that landed in the same block', async () => {
+      const { fetchFn } = undeployed({
+        transfers: [
+          { block: 500, logIndex: 0, from: OTHER, to: WALLET, value: 1n },
+          { block: 500, logIndex: 2, from: OTHER, to: WALLET, value: 2n },
+          { block: 70_000, logIndex: 0, from: OTHER, to: WALLET, value: 4n },
+        ],
+      });
+
+      const page = await history(fetchFn).nextPage(20);
+
+      expect(page.rows.map((r) => r.value)).toEqual(['4', '2', '1']);
+      expect(page.coveredBackToMs).toBe(0);
+    });
+
+    it('hands the receipts out page by page', async () => {
+      const { fetchFn, calls } = undeployed({
+        transfers: [100, 200, 300].map((block) => ({
+          block,
+          logIndex: 0,
+          from: OTHER,
+          to: WALLET,
+          value: BigInt(block),
+        })),
+      });
+      const wallet = history(fetchFn);
+
+      const first = await wallet.nextPage(2);
+      expect(first.rows.map((r) => r.value)).toEqual(['300', '200']);
+      expect(first.hasMore).toBe(true);
+      expect(first.coveredBackToMs).toBe(blockTime(200) * 1000);
+
+      const before = calls.length;
+      const second = await wallet.nextPage(2);
+      expect(second.rows.map((r) => r.value)).toEqual(['100']);
+      expect(second.hasMore).toBe(false);
+      expect(second.coveredBackToMs).toBe(0);
+      expect(calls).toHaveLength(before);
+    });
+
+    it('stops at 25 receipts per token and says what is not covered', async () => {
+      const transfers = Array.from({ length: 30 }, (_, i) => ({
+        block: 1_000 * (i + 1),
+        logIndex: 0,
+        from: OTHER,
+        to: WALLET,
+        value: 1n,
+      }));
+      const { fetchFn } = undeployed({ transfers });
+
+      const page = await history(fetchFn).nextPage(50);
+
+      expect(page.rows).toHaveLength(25);
+      expect(page.rows[24].blockNumber).toBe(6_000);
+      expect(page.hasMore).toBe(false);
+      expect(page.coveredBackToMs).toBe(blockTime(6_000) * 1000);
+    });
+
+    it('waits out a rate limit instead of giving up the search', async () => {
+      const { fetchFn: chain } = undeployed({
+        transfers: [{ block: 123_456, logIndex: 0, from: OTHER, to: WALLET, value: 7n }],
+      });
+      let refused = 0;
+      const fetchFn: HttpFetch = async (url, init) => {
+        const body = JSON.parse(init.body ?? '{}') as { method?: string; params?: unknown[] };
+        if (body.method === 'eth_call' && body.params?.[1] !== 'latest' && refused < 2) {
+          refused += 1;
+          return { ok: false, status: 429, json: async () => ({ error: { message: 'over rate limit' } }) };
+        }
+        return chain(url, init);
+      };
+
+      const page = await history(fetchFn).nextPage(20);
+
+      expect(refused).toBe(2);
+      expect(page.rows.map((r) => r.blockNumber)).toEqual([123_456]);
+      expect(page.coveredBackToMs).toBe(0);
+    });
+
+    it('falls back to the log scan when a balance change has no transfer behind it', async () => {
+      const { fetchFn, calls } = undeployed({
+        transfers: [{ block: HEAD - 40, logIndex: 0, from: OTHER, to: WALLET, value: 2_000_000n }],
+        // Interest credited without a Transfer event.
+        extraAt: [{ block: 9_000, value: 5n }],
+      });
+
+      const page = await history(fetchFn).nextPage(20);
+
+      expect(page.rows.map((r) => r.value)).toEqual(['2000000']);
+      expect(calls.some((c) => c.method === 'eth_getLogs' && (c.span ?? 0) > 1)).toBe(true);
+    });
+  });
+
+  it('falls back to the log scan when no RPC serves past state', async () => {
+    const { fetchFn, calls } = fakeRpc({
+      maxSpanByUrl: { 'https://rpc.example': 50_000 },
+      transfers: [{ block: HEAD - 40, logIndex: 0, from: OTHER, to: WALLET, value: 2_000_000n }],
+      safeService: safeServiceWith([]),
+      deployed: false,
+      balances: { [USDC.address.toLowerCase()]: 2_000_000n },
+    });
+
+    const page = await history(fetchFn).nextPage(20);
+
+    expect(page.rows.map((r) => r.value)).toEqual(['2000000']);
+    expect(page.coveredBackToMs).toBe(0);
+    expect(calls.some((c) => c.method === 'eth_getLogs' && (c.span ?? 0) > 1)).toBe(true);
   });
 
   it('uses RPC logs when the indexer is unreachable', async () => {
