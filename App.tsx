@@ -15,12 +15,20 @@ import i18n from './src/shared/locales/i18n';
 import { I18nLanguageSync } from './src/shared/hooks/useAppTranslation';
 import { BaseCurrencySync, ExchangeRatesBootstrap } from './src/shared/hooks/useBaseCurrencySync';
 import { PrivyProvider, usePrivy, useIdentityToken, usePrivyClient } from '@privy-io/expo';
+import { useAuthSession } from './src/lib/auth/authSession';
+import { hydrateLocalWallet, useLocalWalletStore } from './src/lib/wallet/localWallet';
 import { exchangePrivyToken } from './src/lib/api/auth/privyExchange';
 import { applyPendingOAuthDisplayName } from './src/lib/auth/applyPendingOAuthName';
 import { fetchIdentityTokenWithRetry } from './src/lib/auth/privyTokens';
+import {
+  LOCAL_SESSION_TOKEN,
+  bindLocalSessionUser,
+  loadLocalProfile,
+} from './src/lib/auth/localSession';
 import { KuraApiError } from './src/lib/api/errors';
 import { clearDataKey } from './src/lib/crypto/dataKeySession';
 import { env, hasValidWalletConnectProjectId } from './src/config/env';
+import { features } from './src/config/features';
 import { useAppStore } from './src/shared/store/useAppStore';
 import { ThemeProvider, useTheme } from './src/shared/theme/ThemeContext';
 import Logger from './src/shared/utils/Logger';
@@ -37,6 +45,7 @@ import TransactionDetailScreen from './src/features/card/screens/TransactionDeta
 import CardManagerScreen from './src/features/card/screens/CardManagerScreen';
 import DinariKycScreen from './src/features/stocks/screens/DinariKycScreen';
 import PrivyLoginScreen from './src/features/auth/screens/PrivyLoginScreen';
+import LocalWalletOnboardingScreen from './src/features/auth/screens/LocalWalletOnboardingScreen';
 import { AppKitProvider, AppKit } from '@reown/appkit-react-native';
 import { initAppKit } from './src/shared/config/AppKitConfig';
 import type { createAppKit } from '@reown/appkit-react-native';
@@ -62,7 +71,8 @@ const PRIVY_APP_ID = env.privyAppId;
 
 const PRIVY_CLIENT_ID = env.privyClientId || undefined;
 
-if (!PRIVY_CLIENT_ID) {
+// Privy is only used with an app backend; without one the wallet key lives on this device.
+if (features.backend && !PRIVY_CLIENT_ID) {
   Logger.warn(
     'App',
     'EXPO_PUBLIC_PRIVY_CLIENT_ID is missing — identity tokens may be unavailable and backend email binding can fail',
@@ -131,7 +141,7 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
   const { isReady, user, getAccessToken, logout } = usePrivy();
   const { getIdentityToken } = useIdentityToken();
   const privyClient = usePrivyClient();
-  const setPrivySession = useAppStore((s) => s.setPrivySession);
+  const setAuthSession = useAppStore((s) => s.setAuthSession);
   const clearAuthSession = useAppStore((s) => s.clearAuthSession);
   const sessionLockStatus = useAppStore((s) => s.sessionLockStatus);
   const authStatus = useAppStore((s) => s.authStatus);
@@ -181,6 +191,7 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
         privyUserId: user.id,
         linkedAccounts: user.linked_accounts?.map((a) => a.type),
       });
+
       setExchangeStatus('pending');
 
       void (async () => {
@@ -274,7 +285,7 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
             if (cancelled) return;
 
             // JWT must be in the store before authenticated /api/auth/me/* calls.
-            setPrivySession(login.token, login.user);
+            setAuthSession(login.token, login.user);
 
             const profile = await applyPendingOAuthDisplayName(login.user, privyUserForEmail);
             if (profile.displayName !== login.user.displayName) {
@@ -361,6 +372,74 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Bridge (no backend): the wallet on this device → useAppStore
+// ─────────────────────────────────────────────────────────────────────────────
+
+const IDLE_LOGIN_EXCHANGE: LoginExchangeState = { status: 'idle', retry: () => {} };
+
+/**
+ * Counterpart of PrivyBridgeProvider when there is no app backend. Nothing is
+ * exchanged over the network: a wallet key on this device is the session.
+ */
+function LocalSessionBridge({ children }: { children: React.ReactNode }) {
+  const { isReady, user } = useAuthSession();
+  const setAuthSession = useAppStore((s) => s.setAuthSession);
+  const clearAuthSession = useAppStore((s) => s.clearAuthSession);
+  const sessionLockStatus = useAppStore((s) => s.sessionLockStatus);
+  const userId = user?.id ?? null;
+
+  useEffect(() => {
+    void hydrateLocalWallet();
+  }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    if (!userId) {
+      // Wallet removed (or none yet) → wipe the in-memory session.
+      bindLocalSessionUser(null);
+      clearDataKey();
+      if (useAppStore.getState().authStatus !== 'unauthenticated') {
+        clearAuthSession();
+      }
+      return;
+    }
+
+    // Bind even while locked so unlock can rebuild the profile.
+    bindLocalSessionUser(userId);
+    if (sessionLockStatus !== 'unlocked') return;
+    if (useAppStore.getState().authToken) return;
+
+    let cancelled = false;
+    void (async () => {
+      // Settle the lock state for this wallet before persisting a session, so a
+      // returning wallet starts locked and a brand-new one does not.
+      await useAppStore.getState().initializeSessionLock(true);
+      if (cancelled) return;
+      const state = useAppStore.getState();
+      if (state.sessionLockStatus !== 'unlocked' || state.authToken) return;
+      const profile = await loadLocalProfile();
+      if (cancelled || !profile) return;
+      setAuthSession(LOCAL_SESSION_TOKEN, profile);
+      Logger.info('LocalSession', 'Local session established (no app backend)');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isReady, userId, sessionLockStatus, setAuthSession, clearAuthSession]);
+
+  return (
+    <LoginExchangeContext.Provider value={IDLE_LOGIN_EXCHANGE}>
+      {children}
+      <SessionLockOverlay />
+      <AppPinSetupOverlay />
+      <LocalAuthOverlay />
+    </LoginExchangeContext.Provider>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Screens
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -402,7 +481,8 @@ const PRIVY_INIT_TIMEOUT_MS = 12_000;
 
 function AppInner() {
   const { t } = useTranslation();
-  const { isReady, user } = usePrivy();
+  const { isReady, user } = useAuthSession();
+  const localWalletStatus = useLocalWalletStore((s) => s.status);
   const { colors, scheme } = useTheme();
   const navTheme = {
     ...DefaultTheme,
@@ -440,7 +520,9 @@ function AppInner() {
 
   // Watchdog 2: signed into Privy but the Kura token exchange never completes.
   useEffect(() => {
-    if (!(user && !authToken)) {
+    // On-device wallets have no token exchange to wait for (a locked app has a
+    // user and no token for as long as it stays locked).
+    if (!features.backend || !(user && !authToken)) {
       setSignInTimedOut(false);
       return;
     }
@@ -467,17 +549,19 @@ function AppInner() {
     const uninstallLock = installAppLock();
     const uninstallScreenshotGuard = installScreenshotGuard();
 
-    void pingHealth(5_000).then((result) => {
-      if (!result.ok) {
-        Logger.warn('App', 'Backend health ping failed', {
-          latencyMs: result.latencyMs,
-          error: result.error,
-        });
-        setBackendOffline(true);
-      } else {
-        setBackendOffline(false);
-      }
-    });
+    if (features.backend) {
+      void pingHealth(5_000).then((result) => {
+        if (!result.ok) {
+          Logger.warn('App', 'Backend health ping failed', {
+            latencyMs: result.latencyMs,
+            error: result.error,
+          });
+          setBackendOffline(true);
+        } else {
+          setBackendOffline(false);
+        }
+      });
+    }
 
     return () => {
       uninstallLock();
@@ -497,6 +581,21 @@ function AppInner() {
       startDeepLinkCapture();
     }
   }, [user, sessionLockStatus, authToken]);
+
+  // The device keystore could not be read. Do not fall through to onboarding:
+  // creating a wallet now could overwrite a key that is still there.
+  if (!features.backend && localWalletStatus === 'error') {
+    return (
+      <BootErrorScreen
+        icon="alert-circle"
+        title={t('localWallet.keystoreErrorTitle')}
+        message={t('localWallet.keystoreErrorMessage')}
+        actions={[
+          { label: t('boot.tryAgain'), onPress: () => void hydrateLocalWallet(), variant: 'primary' },
+        ]}
+      />
+    );
+  }
 
   if (!isReady) {
     if (initTimedOut) {
@@ -524,7 +623,8 @@ function AppInner() {
   // Show a loader instead of flashing the (session-less) main UI.
   // Locked cold starts show the main shell under SessionLockOverlay (JWT stays in SecureStore only).
   if (user && !authToken && sessionLockStatus !== 'locked') {
-    if (signInTimedOut && loginStatus !== 'pending') {
+    // LoginRetryScreen is Privy-only; a local session has nothing to retry.
+    if (signInTimedOut && loginStatus !== 'pending' && features.backend) {
       return <LoginRetryScreen />;
     }
     return <BootLoadingView caption="Signing in…" />;
@@ -555,7 +655,7 @@ function AppInner() {
           ) : (
             <Stack.Screen
               name="Auth"
-              component={PrivyLoginScreen}
+              component={features.backend ? PrivyLoginScreen : LocalWalletOnboardingScreen}
               options={{ animationTypeForReplace: 'pop' }}
             />
           )}
@@ -730,7 +830,8 @@ function AppKitGate({ children }: { children: React.ReactNode }) {
 export default function App() {
   // Guard: mounting <PrivyProvider> with an empty appId throws and crashes the
   // whole app. Fail gracefully with an actionable screen instead.
-  if (!HAS_VALID_PRIVY_APP_ID) {
+  // (Without an app backend Privy is not used at all, so no app id is needed.)
+  if (features.backend && !HAS_VALID_PRIVY_APP_ID) {
     Logger.error('App', 'Privy App ID is missing — set EXPO_PUBLIC_PRIVY_APP_ID');
     return (
       <GestureHandlerRootView style={styles.root}>
@@ -766,13 +867,21 @@ export default function App() {
             <I18nLanguageSync />
             <BaseCurrencySync />
             <ExchangeRatesBootstrap />
-            <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
+            {features.backend ? (
+              <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
+                <AppKitGate>
+                  <PrivyBridgeProvider>
+                    <AppInner />
+                  </PrivyBridgeProvider>
+                </AppKitGate>
+              </PrivyProvider>
+            ) : (
               <AppKitGate>
-                <PrivyBridgeProvider>
+                <LocalSessionBridge>
                   <AppInner />
-                </PrivyBridgeProvider>
+                </LocalSessionBridge>
               </AppKitGate>
-            </PrivyProvider>
+            )}
           </I18nextProvider>
         </ThemeProvider>
       </RootErrorBoundary>

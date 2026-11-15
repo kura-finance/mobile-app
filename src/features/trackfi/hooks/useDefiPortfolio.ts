@@ -33,7 +33,7 @@ import type {
   RateLimitInfo,
 } from '../../../lib/api/debank/types';
 import Logger from '../../../shared/utils/Logger';
-import { hasAppBackend } from '../../../config/env';
+import { features } from '../../../config/features';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -289,7 +289,7 @@ export function useDefiPortfolio() {
 
   const fetchAll = useCallback(
     async (list: WatchedWallet[], forceRefresh = false) => {
-      if (!hasAppBackend() || list.length === 0) return;
+      if (!features.debank || list.length === 0) return;
 
       // Mark loading — keep prior balances so the UI does not flash to $0.
       setWalletData((prev) => {

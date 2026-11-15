@@ -2,8 +2,9 @@ import type { ImageSourcePropType } from 'react-native';
 
 import { brand } from './branding';
 import { env } from './env';
+import { chainLogoUrl, tokenLogoUrl } from './tokenLogos';
 
-/** logo.dev publishable key (pk_…). Empty when unset — callers use glyph fallbacks. */
+/** logo.dev publishable key (pk_…). Empty when unset — logos come from tokenLogos.ts. */
 export const LOGODEV_TOKEN = env.logodevToken;
 
 /** Referer sent with img.logo.dev requests (required when domain restrictions are enabled). */
@@ -26,14 +27,8 @@ export function withLogoDevAuth(raw: string | undefined | null): string | null {
   const pathMatch = raw.match(/img\.logo\.dev\/([^?#]+)/);
   if (!pathMatch) return raw;
 
-  if (LOGODEV_TOKEN) return appendToken(raw);
-
-  // No token — domain-style paths can fall back to Clearbit (exchange list icons).
-  const path = pathMatch[1];
-  if (!path.startsWith('ticker/') && !path.startsWith('crypto/') && !path.startsWith('isin/') && !path.startsWith('name/')) {
-    return `https://logo.clearbit.com/${path}`;
-  }
-  return null;
+  // No key: a logo.dev URL cannot load, so the caller falls back to its glyph.
+  return LOGODEV_TOKEN ? appendToken(raw) : null;
 }
 
 /** Image source for remote logos; adds Referer for img.logo.dev (mobile has none by default). */
@@ -54,8 +49,13 @@ export function tickerLogoUrl(symbol: string, size = 64): string | null {
   );
 }
 
+/**
+ * Crypto logo for a symbol: logo.dev when a key is set, otherwise the keyless
+ * table in tokenLogos.ts (null for symbols it does not list).
+ */
 export function cryptoLogoUrl(symbol: string, size = 128): string | null {
-  if (!LOGODEV_TOKEN || !symbol) return null;
+  if (!symbol) return null;
+  if (!LOGODEV_TOKEN) return tokenLogoUrl(symbol);
   return (
     `https://img.logo.dev/crypto/${encodeURIComponent(symbol.toLowerCase())}` +
     `?token=${LOGODEV_TOKEN}&size=${size}&format=png`
@@ -85,9 +85,12 @@ export const CHAIN_LOGO_LOOKUP: Record<
   GNO:  { domains: ['gnosis.io'], crypto: 'gno' },
 };
 
-/** Ordered logo.dev URLs to try for a chain key (2× size for retina). */
+/** Ordered logo URLs to try for a chain key (2× size for retina). */
 export function chainLogoUrls(chainKey: string, size = 64): string[] {
-  if (!LOGODEV_TOKEN) return [];
+  if (!LOGODEV_TOKEN) {
+    const keyless = chainLogoUrl(chainKey);
+    return keyless ? [keyless] : [];
+  }
   const lookup = CHAIN_LOGO_LOOKUP[chainKey];
   if (!lookup) return [];
   const urls: string[] = [];

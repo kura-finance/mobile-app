@@ -1,14 +1,13 @@
 /**
  * useWalletHistory
  *
- * Fetches ERC-20 token transfer history for the Card Smart Account from Blockscout
- * (Base mainnet, no API key required).
- *
- * Uses the stable Etherscan-compatible v1 endpoint:
- *   GET https://base.blockscout.com/api?module=account&action=tokentx&address={addr}
+ * ERC-20 token transfer history for the Card Smart Account on Base mainnet,
+ * no API key required: the Safe Transaction Service for indexed history and
+ * Base RPC logs for the newest blocks and for wallets not deployed yet
+ * (lib/chain/walletTransfers.ts).
  *
  * History is backed by a shared session store per smart address so Home preview and
- * All Transactions reuse one Blockscout pager + Bridge poll.
+ * All Transactions reuse one transfer pager + Bridge poll.
  */
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';

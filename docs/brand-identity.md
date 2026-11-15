@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and packaging assets** for this mobile client. Use this when rebranding, selling, or auditing UI consistency.
+Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and packaging assets** for this mobile client. Use this when rebranding, forking, or auditing UI consistency.
 
 **Related:** [fork-guide.md](fork-guide.md) · [maintainers.md](maintainers.md) · [handover.md](handover.md)
 
@@ -33,7 +33,7 @@ Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and pa
 | URL scheme | `kura://` | branding |
 | Tagline | One app to manage all your finances, from tradFi to crypto. | `brand.appDescription` |
 | Homepage | `https://kura-finance.com` | branding → legal WebViews |
-| Support | `support@kura-finance.com` | branding |
+| Support | GitHub Issues (`brand.supportUrl`) | branding |
 | WalletConnect wallet id | `kura-wallet` | branding → AppKit |
 | Public wallet icon URL | `https://kura-finance.com/icon.png` | `brand.defaultIconUrl` (override: `EXPO_PUBLIC_WALLET_ICON_URL`) |
 | Passkey RP name / host | `Kura` / `api.kura-finance.com` | branding |
@@ -164,8 +164,8 @@ There is **no local SVG wordmark**. Brand appearance in-app uses raster assets +
 | `adaptive-icon.png` | Android adaptive foreground |
 | `android-background.png` | Android adaptive background |
 | `card.webp` | In-app mark on auth screens + card chrome |
-| `gnosis-icon.png` | Partner asset (packaged; not widely `require`d) |
-| `gnosis-pay-icon.png` | Partner asset |
+| `gnosis-icon.png` | Partner asset (Gnosis owl; packaged, not `require`d) — [NOTICE](../NOTICE) |
+| `gnosis-pay-icon.png` | Partner asset (Gnosis Pay owl) — [NOTICE](../NOTICE) |
 
 #### Platform packs
 
@@ -235,6 +235,7 @@ Not tokenized in theme. Observed conventions:
 
 - [ ] Update `branding.ts` + `app.config.branding.js`
 - [ ] Replace `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png`, `android-background.png`, `card.webp`
+- [ ] Remove or replace partner rasters (`gnosis-icon.png`, `gnosis-pay-icon.png`) — [NOTICE](../NOTICE)
 - [ ] Regenerate `assets/ios/` and `assets/android/` launcher sets if needed
 - [ ] Adjust `theme.ts` primary / surfaces if changing palette
 - [ ] Set `EXPO_PUBLIC_WALLET_ICON_URL` / fee & WC dashboards
@@ -262,6 +263,8 @@ Full steps: [fork-guide.md](fork-guide.md).
 ### Logo 与资源
 
 无本地 SVG 字标。商店图标 / Splash：`assets/icon.png`、`splash-icon.png`、adaptive 系列。应用内 Logo 多用 `assets/card.webp`。远端 WC 图标：`brand.defaultIconUrl` 或 `EXPO_PUBLIC_WALLET_ICON_URL`。
+
+合作方图示 `gnosis-icon.png`、`gnosis-pay-icon.png` 不适用 MIT，见 [NOTICE](../NOTICE)；fork 时请删除或替换。
 
 ### 图标
 

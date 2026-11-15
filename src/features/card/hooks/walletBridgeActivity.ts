@@ -3,7 +3,6 @@
  * for the unified transaction history feed.
  */
 
-import { hasAppBackend } from '../../../config/env';
 import { readAuthToken } from '../../../lib/api/client';
 import {
   isCryptoTransferComplete,
@@ -31,6 +30,7 @@ import {
 import Logger from '../../../shared/utils/Logger';
 import { hasPendingBridgeDeposits } from '../../../lib/api/ramp/bridgeDepositDisplay';
 import type { WalletTx } from './useWalletHistory';
+import { features } from '../../../config/features';
 
 const DEPOSIT_STATUS: Record<string, { labelKey: string; color: string }> = {
   funds_scheduled: { labelKey: 'card.statusScheduled', color: '#9CA3AF' },
@@ -500,7 +500,7 @@ export async function fetchBridgeActivities(options?: {
     externalAccounts: [],
   };
 
-  if (!hasAppBackend()) return empty;
+  if (!features.fiatRamp) return empty;
 
   const token = await readAuthToken();
   if (!token) return empty;

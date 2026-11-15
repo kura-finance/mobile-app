@@ -46,11 +46,11 @@ Set at minimum:
 ```
 APP_ENV=production
 NODE_ENV=production
-EXPO_PUBLIC_API_BASE_URL=https://api.kura-finance.com   # official app
+EXPO_PUBLIC_API_BASE_URL=          # empty = on-chain only (default)
 # … all production EXPO_PUBLIC_* keys
 ```
 
-Official Kura app uses `https://api.kura-finance.com`. Forks use their backend or leave empty for wallet-only.
+The on-chain build ships without a backend. The hosted Kura backend still serves the current store release until its shutdown in 2027; set `EXPO_PUBLIC_API_BASE_URL` only for a backend build (that one, or your own). Without one there are no accounts and no Privy keys are needed: the wallet key lives on the device.
 
 Bump version in [`app.config.js`](../app.config.js) (`version`), then after prebuild sync native codes:
 
@@ -143,12 +143,12 @@ npm run release:android:apk
 
 ### 5. Pre-release checklist
 
-- [ ] `.env` has production `EXPO_PUBLIC_*` (Privy, WC, Pimlico, API URL, logo.dev, …)
+- [ ] `.env` has production `EXPO_PUBLIC_*` (Privy, WC; optional Pimlico for USDC gas / API URL / logo.dev)
 - [ ] Version bumped in `app.config.js` + native version codes
 - [ ] Privy dashboard allows this bundle ID / SHA fingerprints
 - [ ] WalletConnect project id is production
 - [ ] iOS associated domains + Android App Links live on your host
-- [ ] logo.dev token valid; domain restrictions allow your site (if enabled)
+- [ ] If using logo.dev: token valid; domain restrictions allow your site (if enabled)
 - [ ] No secrets committed (`.env`, `gradle.properties`, keystores, `local.properties`)
 - [ ] Smoke test Release build on real devices
 
@@ -183,7 +183,7 @@ cp .env.example .env
 # 填写全部生产 EXPO_PUBLIC_* 
 ```
 
-官方 App：`EXPO_PUBLIC_API_BASE_URL=https://api.kura-finance.com`
+官方 App 不接后端（Kura 托管后端已停止运营）：`EXPO_PUBLIC_API_BASE_URL` 留空；仅在自建后端时填写。无后端时没有账户，也不需要 Privy 密钥：钱包密钥保存在设备本地。
 
 ### Prebuild
 

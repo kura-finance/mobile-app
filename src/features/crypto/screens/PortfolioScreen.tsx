@@ -394,7 +394,7 @@ export default function PortfolioScreen() {
             )}
             {portfolioTotal <= 0 && (
               <View style={st.emptyHoldings}>
-                <Text style={st.emptyHoldingsText}>{t('crypto.portfolioEmpty')}</Text>
+                <Text style={st.emptyHoldingsText}>{t(features.dinariStocks ? 'crypto.portfolioEmpty' : 'crypto.portfolioEmptyTokensOnly')}</Text>
               </View>
             )}
           </>

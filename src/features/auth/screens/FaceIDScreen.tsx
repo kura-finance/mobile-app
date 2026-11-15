@@ -210,6 +210,8 @@ function makeStyles(
       width: brandLayout ? 88 : 72,
       height: brandLayout ? 56 : 46,
       marginBottom: brandLayout ? 20 : 16,
+      // The mark is dark on transparent: recolour it on the dark theme so it stays visible.
+      tintColor: scheme === 'dark' ? c.text : undefined,
     },
     title: {
       fontSize: brandLayout ? 30 : 24,
