@@ -19,6 +19,7 @@ import { useBiometricUnlockLabel } from '../../../shared/hooks/useDeviceAuthUnlo
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { APP_PIN_LENGTH } from '../../../lib/security/appPinCore';
+import { features } from '../../../config/features';
 
 const CARD_LOGO = require('../../../../assets/card.webp');
 
@@ -75,6 +76,12 @@ export default function EnterAppPinScreen({
   };
 
   const handleForgotPin = () => {
+    // On-device wallet: there is no account to sign back into. The caller asks
+    // "remove the wallet?" itself, so the sign-out wording here would be wrong.
+    if (!features.backend) {
+      onForgotPin?.();
+      return;
+    }
     Alert.alert(t('auth.forgotAppPinTitle'), t('auth.forgotAppPinMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -186,6 +193,8 @@ function makeStyles(c: ThemeColors, scheme: 'light' | 'dark', mode: 'overlay' | 
       width: 72,
       height: 46,
       marginBottom: 16,
+      // The mark is dark on transparent: recolour it on the dark theme so it stays visible.
+      tintColor: scheme === 'dark' ? c.text : undefined,
     },
     title: {
       fontSize: 24,

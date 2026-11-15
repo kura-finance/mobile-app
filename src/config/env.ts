@@ -131,7 +131,7 @@ export const env = {
   baseRpcUrl: trimEnv(process.env.EXPO_PUBLIC_BASE_RPC_URL),
   payGasInUsdc: envBool(trimEnv(process.env.EXPO_PUBLIC_PAY_GAS_IN_USDC), true),
 
-  /** Optional logo.dev publishable key — unset → glyph / Clearbit fallbacks. */
+  /** Optional logo.dev publishable key — unset → keyless logos (tokenLogos.ts), then glyphs. */
   logodevToken:
     trimEnv(process.env.EXPO_PUBLIC_LOGODEV_TOKEN) || readExtra('logodevToken'),
 

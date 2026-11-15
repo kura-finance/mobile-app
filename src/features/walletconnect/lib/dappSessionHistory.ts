@@ -4,6 +4,8 @@ import type { SessionTypes } from '@walletconnect/types';
 const STORAGE_KEY_PREFIX = 'kura_wc_dapp_sessions_v1';
 /** Legacy device-wide key — cleared on logout for migration. */
 const LEGACY_STORAGE_KEY = STORAGE_KEY_PREFIX;
+/** User ids of on-device wallets — see `localUserId` in lib/auth/localSessionCore. */
+const LOCAL_USER_ID_PREFIX = 'local:';
 
 export type DappSessionStatus = 'active' | 'disconnected';
 
@@ -83,13 +85,44 @@ export function syncDappSessionHistory(
   return next;
 }
 
+function parseRecords(raw: string | null): DappSessionRecord[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as DappSessionRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * History is keyed by user id. Moving from an account to an on-device wallet
+ * changes that id to `local:<address>`, which would leave the old list behind.
+ * When this device holds the history of exactly one former account, move it to
+ * the on-device wallet. With several the owner is ambiguous, so nothing moves.
+ */
+async function adoptAccountDappHistory(userId: string): Promise<DappSessionRecord[]> {
+  if (!userId.startsWith(LOCAL_USER_ID_PREFIX)) return [];
+  const accountKeyPrefix = `${STORAGE_KEY_PREFIX}:`;
+  const localKeyPrefix = `${accountKeyPrefix}${LOCAL_USER_ID_PREFIX}`;
+  const accountKeys = (await AsyncStorage.getAllKeys()).filter(
+    (key) => key.startsWith(accountKeyPrefix) && !key.startsWith(localKeyPrefix),
+  );
+  if (accountKeys.length !== 1) return [];
+
+  const [accountKey] = accountKeys;
+  const records = parseRecords(await AsyncStorage.getItem(accountKey));
+  if (records.length > 0) await saveDappSessionHistory(userId, records);
+  await AsyncStorage.removeItem(accountKey);
+  return records;
+}
+
 export async function loadDappSessionHistory(userId: string): Promise<DappSessionRecord[]> {
   if (!userId) return [];
   try {
-    const raw = await AsyncStorage.getItem(dappSessionStorageKey(userId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as DappSessionRecord[];
-    return Array.isArray(parsed) ? parsed : [];
+    const records = parseRecords(await AsyncStorage.getItem(dappSessionStorageKey(userId)));
+    if (records.length > 0) return records;
+    return await adoptAccountDappHistory(userId);
   } catch {
     return [];
   }

@@ -1,6 +1,9 @@
 /**
- * Shared wallet history engine — one Blockscout pager + Bridge poll per smart address.
+ * Shared wallet history engine — one transfer pager + Bridge poll per smart address.
  * Survives remounts when Home preview and All Transactions both subscribe.
+ *
+ * On-chain rows come from lib/chain/walletTransfers (Safe Transaction Service
+ * + Base RPC logs); see that file for what each source covers.
  */
 
 import i18n from '../../../shared/locales/i18n';
@@ -14,8 +17,24 @@ import { fetchBridgeActivities, enrichFiatWithdrawAccountMeta } from './walletBr
 import { resolveBridgePollIntervalMs } from './bridgePollConfig';
 import type { ExternalAccountResult, PayoutAddressResult } from '../../../lib/api/ramp/client';
 import type { WalletTx } from './useWalletHistory';
+import { getAddress } from 'viem';
+import Logger from '../../../shared/utils/Logger';
+import { BLUE_CHIPS } from '../../crypto/config/blueChips';
+import { getBaseRpcUrls } from '../config/cardWalletConfig';
+import {
+  WalletTransferHistory,
+  type TransferLogRow,
+  type TransferLogToken,
+} from '../../../lib/chain/walletTransfers';
+import { features } from '../../../config/features';
 
-const BLOCKSCOUT_API = 'https://base.blockscout.com/api';
+/** Safe Transaction Service for Base (keyless, rate-limited). */
+const SAFE_TX_SERVICE_URL = 'https://api.safe.global/tx-service/base';
+/**
+ * Added after the configured RPCs for history only: it serves `eth_getLogs`
+ * over wider block ranges than most public endpoints.
+ */
+const LOGS_FALLBACK_RPC_URL = 'https://base-rpc.publicnode.com';
 const PAGE_SIZE = 20;
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
@@ -31,7 +50,8 @@ function readAuthTokenSync(): string | null {
   return getUsableAuthToken();
 }
 
-interface BlockscoutV1Transfer {
+/** One ERC-20 transfer, in the Etherscan-style shape `normalize` was written for. */
+interface ChainTransfer {
   hash: string;
   timeStamp: string;
   from: string;
@@ -43,17 +63,48 @@ interface BlockscoutV1Transfer {
   contractAddress: string;
 }
 
-interface BlockscoutV1Response {
-  status?: string;
-  message: string;
-  result: BlockscoutV1Transfer[] | string;
+/** Tokens the RPC log scan looks for: everything the app can hold on Base. */
+const HISTORY_TOKENS: TransferLogToken[] = BLUE_CHIPS.filter(
+  (token) => token.baseAddress !== null && token.trackBalance !== false,
+).map((token) => ({
+  address: token.baseAddress as string,
+  symbol: token.symbol,
+  name: token.name,
+  decimals: token.decimals,
+}));
+
+function checksum(address: string): string {
+  try {
+    return getAddress(address);
+  } catch {
+    return address;
+  }
 }
 
-function isEmptyResultMessage(message: string): boolean {
-  return /no\s+(token\s+)?transactions?\s+found/i.test(message);
+function createTransferHistory(smartAddress: string): WalletTransferHistory {
+  return new WalletTransferHistory({
+    address: checksum(smartAddress),
+    tokens: HISTORY_TOKENS,
+    rpcUrls: [...new Set([...getBaseRpcUrls(), LOGS_FALLBACK_RPC_URL])],
+    safeServiceUrl: SAFE_TX_SERVICE_URL,
+  });
 }
 
-function txId(transfer: BlockscoutV1Transfer): string {
+function chainTransferFromRow(row: TransferLogRow): ChainTransfer {
+  return {
+    hash: row.hash,
+    timeStamp: String(row.timestamp),
+    from: checksum(row.from),
+    to: checksum(row.to),
+    value: row.value,
+    tokenSymbol: row.token.symbol,
+    tokenName: row.token.name,
+    tokenDecimal: String(row.token.decimals),
+    contractAddress: row.token.address,
+  };
+}
+
+function txId(transfer: ChainTransfer): string {
   return [
     transfer.hash,
     (transfer.contractAddress ?? '').toLowerCase(),
@@ -63,7 +114,7 @@ function txId(transfer: BlockscoutV1Transfer): string {
   ].join('-');
 }
 
-function normalize(transfer: BlockscoutV1Transfer, smartAddress: string): WalletTx {
+function normalize(transfer: ChainTransfer, smartAddress: string): WalletTx {
   const myAddr = smartAddress.toLowerCase();
   const fromAddr = (transfer.from ?? '').toLowerCase();
   const toAddr = (transfer.to ?? '').toLowerCase();
@@ -123,10 +174,17 @@ function oldestChainTimestamp(chainTxs: WalletTx[]): number | null {
   return Number.isFinite(min) ? min : null;
 }
 
-function isInitialWindowCovered(chainTxs: WalletTx[], windowMs: number): boolean {
-  const oldest = oldestChainTimestamp(chainTxs);
+/**
+ * True once history is known to be complete for the last `windowMs`. The pager
+ * says how far back it has looked (it scans block ranges, which may hold no
+ * transfers at all); the oldest row is the fallback when it cannot tell.
+ */
+function isInitialWindowCovered(engine: AddressEngine, windowMs: number): boolean {
+  const cutoff = Date.now() - windowMs;
+  if (engine.coveredBackToMs !== null) return engine.coveredBackToMs <= cutoff;
+  const oldest = oldestChainTimestamp(engine.chainTxs);
   if (oldest === null) return true;
-  return oldest <= Date.now() - windowMs;
+  return oldest <= cutoff;
 }
 
 function computeMergedTxs(engine: AddressEngine): WalletTx[] {
@@ -182,6 +240,10 @@ interface AddressEngine {
   error: string | null;
   page: number;
   hasMore: boolean;
+  /** Pager for the on-chain rows; replaced on refresh. */
+  history: WalletTransferHistory | null;
+  /** How far back on-chain history is complete (Unix ms); null if unknown. */
+  coveredBackToMs: number | null;
   initialWindowComplete: boolean;
   initialWindowPages: number;
   bridgeFetchInFlight: boolean;
@@ -264,6 +326,8 @@ function getOrCreateEngine(smartAddress: string): AddressEngine {
       error: null,
       page: 1,
       hasMore: false,
+      history: null,
+      coveredBackToMs: null,
       initialWindowComplete: true,
       initialWindowPages: 0,
       bridgeFetchInFlight: false,
@@ -298,6 +362,8 @@ function resetEngineData(engine: AddressEngine, resetWindow: boolean): void {
   };
   engine.page = 1;
   engine.hasMore = false;
+  engine.history = null;
+  engine.coveredBackToMs = null;
   if (resetWindow) {
     engine.initialWindowComplete = !wantsInitialWindow(engine);
     engine.initialWindowPages = 0;
@@ -313,6 +379,8 @@ function stopPoll(engine: AddressEngine): void {
 
 function startPoll(engine: AddressEngine): void {
   stopPoll(engine);
+  // Bridge (fiat ramp) activity only exists on the app backend — nothing to poll without it.
+  if (!features.fiatRamp) return;
   const token = readAuthTokenSync();
   if (!token) return;
   const intervalMs = resolveBridgePollIntervalMs(engine.bridgeMeta);
@@ -320,6 +388,7 @@ function startPoll(engine: AddressEngine): void {
 }
 
 async function fetchBridge(engine: AddressEngine, options?: { force?: boolean }): Promise<void> {
+  if (!features.fiatRamp) return;
   if (engine.bridgeFetchInFlight) return;
   const token = await readAuthToken();
   if (!token) return;
@@ -352,45 +421,36 @@ async function fetchPage(engine: AddressEngine, pageNum: number, append: boolean
   if (!append) engine.error = null;
   notify(engine);
 
-  const qs = new URLSearchParams({
-    module: 'account',
-    action: 'tokentx',
-    address: smartAddress,
-    page: String(pageNum),
-    offset: String(PAGE_SIZE),
-    sort: 'desc',
-  });
-  const url = `${BLOCKSCOUT_API}?${qs.toString()}`;
+  // Page 1 starts over from the chain head; later pages continue the same pager.
+  if (!append || !engine.history) engine.history = createTransferHistory(smartAddress);
+  const history = engine.history;
+  // A refresh replaces the pager: a page still loading for the old one is
+  // dropped, and leaves `loading` to the load that replaced it.
+  const stale = () => engine.history !== history;
 
   try {
-    let items: BlockscoutV1Transfer[] | null = null;
+    let page: Awaited<ReturnType<WalletTransferHistory['nextPage']>> | null = null;
     let lastErr = '';
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (attempt > 0) await sleep(RETRY_DELAY_MS);
       try {
-        const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) {
-          lastErr = `Blockscout error ${res.status}`;
-          continue;
-        }
-        const data = (await res.json()) as BlockscoutV1Response;
-        if (Array.isArray(data.result)) {
-          items = data.result;
-          break;
-        }
-        if (isEmptyResultMessage(data.message ?? '')) {
-          items = [];
-          break;
-        }
-        lastErr = data.message || 'Blockscout error';
+        page = await history.nextPage(PAGE_SIZE);
+        break;
       } catch (e) {
         lastErr = e instanceof Error ? e.message : String(e);
       }
     }
 
-    if (items === null) throw new Error(lastErr || i18n.t('card.failedLoadHistory'));
+    if (page === null) {
+      // Provider messages ("request limit reached", plan upsells…) mean nothing
+      // to the user: log the detail, show the app's own wording.
+      Logger.warn('WalletHistory', 'Failed to load transfers', { error: lastErr });
+      throw new Error(i18n.t('card.failedLoadHistory'));
+    }
+    if (stale()) return;
 
+    const items = page.rows.map(chainTransferFromRow);
     const normalized = items.map((item) => normalize(item, smartAddress));
     if (!append) {
       engine.chainTxs = normalized;
@@ -402,13 +462,19 @@ async function fetchPage(engine: AddressEngine, pageNum: number, append: boolean
       ];
     }
     engine.page = pageNum;
-    engine.hasMore = items.length >= PAGE_SIZE;
+    // Not `items.length >= PAGE_SIZE`: a page can be short while older blocks remain.
+    engine.hasMore = page.hasMore;
+    engine.coveredBackToMs = page.coveredBackToMs;
   } catch (err) {
-    engine.error = err instanceof Error ? err.message : i18n.t('card.failedLoadHistory');
+    if (!stale()) {
+      engine.error = err instanceof Error ? err.message : i18n.t('card.failedLoadHistory');
+    }
   } finally {
-    engine.loading = false;
-    notify(engine);
-    maybeAdvanceInitialWindow(engine);
+    if (!stale()) {
+      engine.loading = false;
+      notify(engine);
+      maybeAdvanceInitialWindow(engine);
+    }
   }
 }
 
@@ -426,7 +492,7 @@ function maybeAdvanceInitialWindow(engine: AddressEngine): void {
     notify(engine);
     return;
   }
-  if (isInitialWindowCovered(engine.chainTxs, initialWindowMs(engine))) {
+  if (isInitialWindowCovered(engine, initialWindowMs(engine))) {
     engine.initialWindowComplete = true;
     notify(engine);
     return;
@@ -461,7 +527,7 @@ function syncInitialWindowState(engine: AddressEngine): void {
   }
   if (
     engine.initialWindowComplete
-    && !isInitialWindowCovered(engine.chainTxs, initialWindowMs(engine))
+    && !isInitialWindowCovered(engine, initialWindowMs(engine))
   ) {
     engine.initialWindowComplete = false;
     engine.initialWindowPages = 0;

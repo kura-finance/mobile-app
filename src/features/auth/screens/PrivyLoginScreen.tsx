@@ -148,7 +148,13 @@ export default function PrivyLoginScreen() {
       <View style={{ alignItems: 'center', marginBottom: 48 }}>
         <Image
           source={CARD_LOGO}
-          style={{ width: 88, height: 56, marginBottom: 20 }}
+          // Dark mark on transparent: recolour it on the dark theme so it stays visible.
+          style={{
+            width: 88,
+            height: 56,
+            marginBottom: 20,
+            tintColor: scheme === 'dark' ? colors.text : undefined,
+          }}
           resizeMode="contain"
         />
         <Text style={{ fontSize: 30, fontWeight: '700', color: colors.text, letterSpacing: -0.5 }}>

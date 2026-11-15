@@ -53,16 +53,16 @@ Edit `.env` — all runtime config is read through [`src/config/env.ts`](../src/
 | Li.Fi swap / bridge | `https://li.quest/v1` |
 | Morpho Earn | `https://api.morpho.org/graphql` |
 | CoinGecko prices | `https://api.coingecko.com` |
-| Tx history | Base Blockscout |
+| Tx history | Safe Transaction Service (`api.safe.global`) + Base RPC logs |
 
 #### Optional
 
 | Variable | Purpose |
 |----------|---------|
-| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Plaid, DeBank, Dinari (leave empty for wallet-only) |
+| `EXPO_PUBLIC_API_BASE_URL` | Self-hosted backend: TrackFi, Plaid, DeBank, Dinari, fiat ramp (empty by default = on-chain only) |
 | `EXPO_PUBLIC_LIFI_INTEGRATOR` + `EXPO_PUBLIC_LIFI_FEE` | Optional Li.Fi integrator fee |
 | `EXPO_PUBLIC_MORPHO_EARN_FEE` + fee-wrapper env | Optional Morpho yield fee (default: direct Morpho) |
-| `EXPO_PUBLIC_LOGODEV_TOKEN` | Richer logos; unset → glyphs / Clearbit |
+| `EXPO_PUBLIC_LOGODEV_TOKEN` | Stock and long-tail logos; unset → keyless token logos, glyphs for the rest |
 | `EXPO_PUBLIC_COINGECKO_API_KEY` / `EXPO_PUBLIC_LIFI_API_KEY` | Higher rate limits only |
 
 See [`.env.example`](../.env.example) and [official-services.md](official-services.md).
@@ -121,7 +121,7 @@ Compare with [threat-model.md](threat-model.md) review paths if auditing.
 | Symptom | Fix |
 |---------|-----|
 | Wallet RPC errors / zero balances | Confirm `EXPO_PUBLIC_BASE_RPC_URL=https://mainnet.base.org` (or another public RPC); restart with `npx expo start -c` |
-| Rich logos missing | Optional: set `EXPO_PUBLIC_LOGODEV_TOKEN`; without it the app uses glyphs / Clearbit |
+| Rich logos missing | Listed tokens need no key. For stocks and other tokens set `EXPO_PUBLIC_LOGODEV_TOKEN`; without it they show a glyph |
 | `SDK location not found` (Android) | Create `android/local.properties` with `sdk.dir=…` |
 | Invalid `org.gradle.java.home` | Remove stale path from `android/gradle.properties`; use system JDK 17 |
 | Xcode `Sandbox: find deny` / script errors | Plugin `withIosDisableScriptSandbox`; re-run prebuild |
@@ -153,9 +153,9 @@ cp .env.example .env
 
 **核心钱包最低配置：** Privy App ID / Client ID、WalletConnect Project ID。Pimlico key 可选（无 key 时公用 bundler + ETH gas）。
 
-**公用默认：** Base RPC（`mainnet.base.org`）、Li.Fi、Morpho、CoinGecko、Blockscout — 无需额外 key。
+**公用默认：** Base RPC（`mainnet.base.org`）、Li.Fi、Morpho、CoinGecko、Safe Transaction Service — 无需额外 key。
 
-**可选：** `EXPO_PUBLIC_API_BASE_URL`（TrackFi / Dinari）；`EXPO_PUBLIC_LOGODEV_TOKEN`（更好图标）。
+**可选：** `EXPO_PUBLIC_API_BASE_URL`（自建后端：TrackFi / Dinari / 法币出入金，默认留空）；`EXPO_PUBLIC_LOGODEV_TOKEN`（更好图标）。
 
 修改 `.env` 后请 `npx expo start -c`。
 
@@ -191,7 +191,7 @@ npm run lint && npm test && npx tsc --noEmit
 | 现象 | 处理 |
 |------|------|
 | 链上余额失败 | 配置 RPC，清缓存重启 |
-| logo 不显示 | 可选配置 logo.dev；未配置则用字形 / Clearbit |
+| logo 不显示 | 已列出的代币无需密钥；股票等其余图标可选配置 logo.dev，未配置则用字形 |
 | Android SDK | `local.properties` |
 | Xcode Sandbox | 重新 prebuild |
 

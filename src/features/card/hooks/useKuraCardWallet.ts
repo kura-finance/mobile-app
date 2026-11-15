@@ -24,10 +24,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import {
-  IMPORTED_KEY_SECURE_STORE,
   STANDARD_SECURE_STORE,
 } from '../../../lib/security/secureStoreOptions';
-import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
+import { useAuthSession, useSignerWallets } from '../../../lib/auth/authSession';
 import {
   getGlobalProvisionedSca,
   getGlobalProvisionPromise,
@@ -37,7 +36,6 @@ import {
 import { getUsableAuthToken, useSessionUsable } from '../../../lib/security/sessionAccess';
 import {
   WALLET_ADDRESS_STORE_KEY,
-  WALLET_IMPORTED_KEY,
 } from '../config/cardWalletConfig';
 import { fetchWalletRecord, saveScaAddress, saveEoaAddress } from '../../../lib/api/wallet/client';
 import Logger from '../../../shared/utils/Logger';
@@ -92,6 +90,7 @@ import type {
   UseKuraCardWalletReturn,
   WalletStatus,
 } from './kuraCardWallet/types';
+import { features } from '../../../config/features';
 
 export type {
   ImportMnemonicType,
@@ -107,6 +106,10 @@ export type {
 
 export { buildSmartAccountClientFromPrivKey, privateKeyFromMnemonic };
 
+/** Used where an embedded (Privy) provider would be: there is none without a backend. */
+const noEmbeddedProvider = (): Promise<never> =>
+  Promise.reject(new Error(i18n.t('localWallet.keyMissing')));
+
 export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const sessionUsable = useSessionUsable();
   const [status, setStatus] = useState<WalletStatus>('loading');
@@ -118,12 +121,15 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const [isExecutingEarn, setIsExecutingEarn] = useState(false);
   const [isExecutingBorrow, setIsExecutingBorrow] = useState(false);
 
+  // Bumped by retryProvision() to run the provisioning effect again.
+  const [provisionAttempt, setProvisionAttempt] = useState(0);
+
   const cancelRef = useRef(false);
   const provisioningRef = useRef(false);
   const provisionedScaRef = useRef<string | null>(null);
 
-  const { wallets: embeddedWallets, create: createEmbeddedWallet } = useEmbeddedEthereumWallet();
-  const { user } = usePrivy();
+  const { wallets: embeddedWallets, create: createEmbeddedWallet } = useSignerWallets();
+  const { user } = useAuthSession();
   const embeddedWallet = selectCanonicalEmbeddedWallet(embeddedWallets);
   const embeddedWalletRef = useRef(embeddedWallet);
   embeddedWalletRef.current = embeddedWallet;
@@ -146,6 +152,10 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const refreshBalance = refreshBalances;
 
   const resolveSmartAccountClient = useCallback<ResolveSmartAccountClient>(async () => {
+    if (!features.backend) {
+      // No Privy: the owner key is stored on this device.
+      return resolveKuraSmartAccountClient(noEmbeddedProvider);
+    }
     const wallet = embeddedWalletRef.current;
     if (!wallet) {
       throw new Error('Embedded wallet not available.');
@@ -238,6 +248,33 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       return await provisionPromise;
     }
 
+    async function provisionLocal() {
+      try {
+        const cachedSca =
+          getGlobalProvisionedSca() ?? (await SecureStore.getItemAsync(WALLET_ADDRESS_STORE_KEY));
+        if (cachedSca) {
+          await applyReady(cachedSca, provisionedScaRef.current !== cachedSca);
+          return;
+        }
+
+        Logger.info('KuraCardWallet', 'Computing Safe SCA for the on-device key...');
+        setStatus('provisioning');
+        const { smartAddress: addr } = await resolveKuraSmartAccountClient(noEmbeddedProvider);
+        if (cancelRef.current) return;
+        await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr, STANDARD_SECURE_STORE);
+        setGlobalProvisionedSca(addr);
+        await applyReady(addr, true);
+      } catch (err) {
+        if (cancelRef.current) return;
+        const msg = err instanceof Error ? err.message : i18n.t('card.walletSetupFailed');
+        Logger.error('KuraCardWallet', 'Local provision failed', { err: msg });
+        setErrorMessage(msg);
+        setStatus('error');
+      } finally {
+        provisioningRef.current = false;
+      }
+    }
+
     async function provision() {
       try {
         const wallet = embeddedWalletRef.current;
@@ -281,12 +318,23 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       }
     }
 
-    provision();
+    if (!features.backend) {
+      void provisionLocal();
+    } else {
+      provision();
+    }
     return () => {
       cancelRef.current = true;
       provisioningRef.current = false;
     };
-  }, [sessionUsable, user, user?.id, embeddedWalletKey, createEmbeddedWallet]);
+  }, [sessionUsable, user, user?.id, embeddedWalletKey, createEmbeddedWallet, provisionAttempt]);
+
+  /** Try wallet setup again after it ended in `status: 'error'`. */
+  const retryProvision = useCallback(() => {
+    setErrorMessage('');
+    setStatus('loading');
+    setProvisionAttempt((attempt) => attempt + 1);
+  }, []);
 
   const requireReady = useCallback(() => {
     if (!smartAddress) throw new Error('Wallet not ready.');
@@ -488,27 +536,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     return signTypedDataTx(resolveSmartAccountClient, typedData);
   }, [requireReady, resolveSmartAccountClient]);
 
-  const importWallet = useCallback(async (phrase: string, type: ImportMnemonicType) => {
-    setStatus('provisioning');
-    setErrorMessage('');
-    try {
-      const privKey = privateKeyFromMnemonic(phrase, type);
-      const { smartAddress: addr } = await buildSmartAccountClientFromPrivKey(privKey);
-      await SecureStore.setItemAsync(WALLET_IMPORTED_KEY, privKey, IMPORTED_KEY_SECURE_STORE);
-      await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr, STANDARD_SECURE_STORE);
-      await saveScaAddress(addr).catch(() => undefined);
-      setSmartAddress(addr);
-      setStatus('ready');
-      provisionedScaRef.current = addr;
-      setGlobalProvisionedSca(addr);
-      await refreshBalances({ address: addr });
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : i18n.t('card.importFailedShort'));
-      setStatus('error');
-      throw err;
-    }
-  }, [refreshBalances]);
-
   return useMemo(() => ({
     status,
     smartAddress,
@@ -523,7 +550,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     isExecutingSwap,
     isExecutingEarn,
     isExecutingBorrow,
-    importWallet,
+    retryProvision,
     refreshBalance,
     sendUsdc,
     sendToken,
@@ -559,7 +586,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     isExecutingSwap,
     isExecutingEarn,
     isExecutingBorrow,
-    importWallet,
+    retryProvision,
     refreshBalance,
     sendUsdc,
     sendToken,

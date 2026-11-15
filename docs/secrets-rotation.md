@@ -17,7 +17,7 @@ If credentials were ever committed to git, shared in chat, or built into a leake
 | WalletConnect / Reown project | [cloud.reown.com](https://cloud.reown.com) | dApp pairing |
 | Privy App ID + Client ID | [dashboard.privy.io](https://dashboard.privy.io) | Login, embedded wallet |
 | Pimlico API key (optional) | [dashboard.pimlico.io](https://dashboard.pimlico.io) | USDC ERC-20 paymaster; without key → public bundler + ETH |
-| logo.dev publishable key (optional) | [logo.dev](https://logo.dev) | Logos; unset → glyphs / Clearbit |
+| logo.dev publishable key (optional) | [logo.dev](https://logo.dev) | Logos; unset → keyless token logos / glyphs |
 | Li.Fi / CoinGecko keys (optional) | Provider dashboards | Rate limits; optional Li.Fi integrator fee |
 | Morpho fee recipient / wrappers (optional) | Your deployment | Earn yield fees when fee-wrapper env is set |
 | Android keystore passwords | Generate new keystore if compromised | Play Store signing |

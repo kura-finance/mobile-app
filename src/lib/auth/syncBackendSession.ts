@@ -35,7 +35,7 @@ export async function syncBackendSessionAfterPrivyChange(params: {
   }
 
   const login = await exchangePrivyToken(accessToken, identityToken);
-  useAppStore.getState().setPrivySession(login.token, login.user);
+  useAppStore.getState().setAuthSession(login.token, login.user);
 
   const fresh = await fetchCurrentUserProfile();
   useAppStore.getState().refreshUserProfile(fresh);

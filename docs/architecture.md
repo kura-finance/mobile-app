@@ -59,7 +59,7 @@ Trust assumptions: [threat-model.md](threat-model.md).
 2. With backend configured: app exchanges Privy token → **Kura JWT** via `POST /api/auth/login` (`src/lib/api/auth/`).
 3. JWT attached by `src/lib/api/client.ts` on authenticated routes.
 
-Without `EXPO_PUBLIC_API_BASE_URL`, Privy login still works but profile / TrackFi APIs fail. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
+Without `EXPO_PUBLIC_API_BASE_URL` (the default) none of the steps above run and **Privy is not used at all** — `<PrivyProvider>` is never mounted. The user creates a wallet (a 12-word BIP-39 phrase from the OS CSPRNG) or imports a phrase / private key in `LocalWalletOnboardingScreen`; the key is stored in SecureStore (`src/lib/wallet/localWallet.ts`) and its presence is the session (`LocalSessionBridge` in `App.tsx`). The profile is only a display name and avatar kept on the device. No request is sent to an app backend. Feature code reads the session through `src/lib/auth/authSession.ts` (`useAuthSession`, `useSignerWallets`), never through `@privy-io/expo` directly, because Privy hooks throw without a provider. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
 
 ### Smart wallet (Base SCA)
 
@@ -126,9 +126,11 @@ Plaintext finance data should not persist unencrypted on device beyond active se
 | Sodium compat | `react-native-libsodium` (native), `libsodium-wrappers` (tests) |
 | SRP (if used) | `tssrp6a` |
 
-### Logos (logo.dev)
+### Logos
 
-[`src/config/logodev.ts`](../src/config/logodev.ts) — CDN URLs when `EXPO_PUBLIC_LOGODEV_TOKEN` is set. `logoDevImageSource()` attaches token and Referer for mobile.
+[`src/config/logodev.ts`](../src/config/logodev.ts) — logo.dev CDN URLs when `EXPO_PUBLIC_LOGODEV_TOKEN` is set. `logoDevImageSource()` attaches token and Referer for mobile.
+
+[`src/config/tokenLogos.ts`](../src/config/tokenLogos.ts) — without a key: fixed images on CoinGecko's public image CDN for the listed tokens and chains. The file is shared verbatim with WebClients (`app/lib/tokenLogos.ts`).
 
 ### Native config plugins
 

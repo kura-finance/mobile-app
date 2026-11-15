@@ -29,12 +29,12 @@ import { useKuraCardWallet } from '../context/KuraCardWalletContext';
 import WalletHistorySection, { HOME_PREVIEW_LIMIT } from '../components/wallet/WalletHistorySection';
 import type { WalletTx } from '../hooks/useWalletHistory';
 import WalletError from '../components/wallet/WalletError';
-import ImportWalletScreen from './ImportWalletScreen';
 import ReceiveModal from '../modals/ReceiveModal';
 import SendModal from '../modals/send';
 import { CardApplyBanner } from '../components/StatusBanner';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
+import { features } from '../../../config/features';
 function KuraCardScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -43,7 +43,6 @@ function KuraCardScreen() {
   const headerHeight = useHeaderHeight();
   const setScrolled = useHeaderStore((st) => st.setScrolled);
   // ── Modal / overlay state ─────────────────────────────────────────────────
-  const [showImportWallet, setShowImportWallet] = useState(false);
   const [receiveMode, setReceiveMode] = useState<'topup' | 'receive'>('receive');
   const [showReceive, setShowReceive] = useState(false);
   const [showSend, setShowSend] = useState(false);
@@ -60,7 +59,7 @@ function KuraCardScreen() {
     errorMessage: walletError,
     isSending,
     isBridging,
-    importWallet,
+    retryProvision,
     sendUsdc,
     executeBridge,
     estimateUsdcGasReserve,
@@ -86,25 +85,13 @@ function KuraCardScreen() {
     navigation.navigate('TransactionDetail', { tx, smartAddress });
   }, [navigation, smartAddress]);
 
-  // ── Import screen overlay ─────────────────────────────────────────────────
-  if (showImportWallet) {
-    return (
-      <SafeAreaView style={s.container}>
-        <ImportWalletScreen
-          onClose={() => setShowImportWallet(false)}
-          onImport={importWallet}
-        />
-      </SafeAreaView>
-    );
-  }
-
   // ── Base wallet error ─────────────────────────────────────────────────────
   if (walletStatus === 'error') {
     return (
       <SafeAreaView style={s.container}>
         <WalletError
           message={walletError || t('card.couldNotSetUpWallet')}
-          onRetry={() => setShowImportWallet(false)}
+          onRetry={retryProvision}
         />
       </SafeAreaView>
     );
@@ -167,8 +154,8 @@ function KuraCardScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── 3. Kura Card entry ─────────────────────────────────────────── */}
-          <CardApplyBanner onPress={openCardManager} />
+          {/* ── 3. Kura Card entry (waitlist lives on the app backend) ─────── */}
+          {features.card ? <CardApplyBanner onPress={openCardManager} /> : null}
 
           {/* ── 4. Transactions ──────────────────────────────────────────── */}
           <View style={s.txSection}>

@@ -59,13 +59,13 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 
 | Variable | Required for | Notes |
 |----------|--------------|-------|
-| `EXPO_PUBLIC_PRIVY_APP_ID` | Login | [Privy](https://dashboard.privy.io) — register bundle ID |
-| `EXPO_PUBLIC_PRIVY_CLIENT_ID` | Login (mobile) | Same dashboard |
+| `EXPO_PUBLIC_PRIVY_APP_ID` | Login — only with a backend | [Privy](https://dashboard.privy.io) — register bundle ID. Not used when the backend URL is empty |
+| `EXPO_PUBLIC_PRIVY_CLIENT_ID` | Login (mobile) — only with a backend | Same dashboard |
 | `EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect | [Reown Cloud](https://cloud.reown.com) |
 | `EXPO_PUBLIC_PIMLICO_API_KEY` | USDC gas paymaster | Optional — without key: public bundler + ETH gas |
 | `EXPO_PUBLIC_BASE_RPC_URL` | On-chain reads | Defaults to free `https://mainnet.base.org` |
-| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, auth JWT | Optional; empty = wallet-only |
-| `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs / Clearbit if unset |
+| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, fiat ramp, card, referrals, Privy login | Optional; empty (default) = on-chain only, on-device wallet, no Privy |
+| `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — keyless token logos if unset, glyphs for the rest |
 | `EXPO_PUBLIC_LIFI_API_KEY` | Li.Fi rate limits | Optional — public API works without key |
 | `EXPO_PUBLIC_LIFI_INTEGRATOR` + `EXPO_PUBLIC_LIFI_FEE` | Li.Fi integrator fee | Optional — both required to collect |
 | `EXPO_PUBLIC_COINGECKO_API_KEY` | Price rate limits | Optional — public API works without key |
@@ -77,7 +77,7 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER` | Morpho API wrapper discovery | Optional — default off |
 | `EXPO_PUBLIC_WALLET_ICON_URL` | AppKit / WalletKit icon | Legacy alias: `EXPO_PUBLIC_KURA_WALLET_ICON_URL` |
 
-**Public by default:** Base RPC, Li.Fi, Morpho GraphQL, CoinGecko, Blockscout — see [official-services.md](official-services.md).
+**Public by default:** Base RPC, Li.Fi, Morpho GraphQL, CoinGecko, Safe Transaction Service — see [official-services.md](official-services.md).
 
 Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari (`hasAppBackend()`). Earn deposits go directly to Morpho unless fee-wrapper env is set. Sample wrapper addresses in `EXAMPLE_MORPHO_FEE_WRAPPER_OVERRIDES` are for history / copy-paste into env only — not active by default.
 
@@ -162,7 +162,8 @@ cp .env.example .env
 
 必填（核心钱包）：Privy、WalletConnect Project ID。  
 Pimlico API key：可选（无 key 时公用 bundler + ETH gas；有 key 且开启 flag 时 USDC gas）。  
-TrackFi / Dinari：需 `EXPO_PUBLIC_API_BASE_URL`。  
+TrackFi / Dinari / 法币出入金：需自建后端并设置 `EXPO_PUBLIC_API_BASE_URL`（默认留空 = 纯链上）。  
+无后端时不使用 Privy：钱包密钥在设备本地生成或导入，没有账户（也就没有「删除账户」，对应的是「从此设备移除钱包」）。  
 logo.dev：可选，见 [official-services.md](official-services.md) 移动端说明。
 
 ### 3. 原生工程
