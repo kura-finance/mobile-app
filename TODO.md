@@ -2,6 +2,7 @@
 
 > 工作筆記，對應 PR「On-chain community edition」。全部完成後請刪除這個檔案。
 > 相關 PR：WebClients 與 BackendServer 的同名分支 `claude/awesome-ritchie-i1bwnp`。
+> 2026-11-16 已 squash 合併：mobile-app #3（社區版）、#4（只收過款的錢包也有交易紀錄）、#5（交易紀錄不再把代幣數量當美元）。合併不會上架，商店版本仍是有後端的舊版。
 
 這個分支的變更通過了型別檢查、單元測試與 lint（`npm test && npm run lint && npx tsc --noEmit`），**沒有在實機上跑過**。
 
@@ -15,6 +16,7 @@
 - [ ] 建立錢包：顯示 12 字助記詞，勾選後才能繼續；之後要求設定 App PIN
       模擬器已驗（設定與確認 PIN 後進主畫面）
 - [ ] 匯入助記詞（12 字）與匯入私鑰（64 hex）都能進到主畫面
+      模擬器已驗助記詞：2026-11-15 匯入 `abandon … about` 進到主畫面，Safe 地址與網頁相同。匯入私鑰未驗
 - [ ] 冷啟動後要求解鎖（生物辨識／PIN），解鎖後回到同一個錢包
       模擬器已驗 PIN：錯誤 PIN 被拒，正確 PIN 回到同一個錢包。生物辨識未驗
 - [ ] 送一筆小額 USDC、做一次 Swap、連一個 WalletConnect dApp 並簽名
@@ -45,6 +47,8 @@
 ## 3. 有後端的模式（自架者會用到）
 
 - [ ] 設定 `EXPO_PUBLIC_API_BASE_URL` 與 Privy 金鑰後，Privy 登入、TrackFi、法幣出入金、卡片、推薦、刪除帳戶都和改動前一樣
+      2026-11-16 模擬器接正式後端、用真實帳號實測，都正常且 log 沒有錯誤：Privy 登入、個人資料、推薦碼與獎勵、卡片候補名單（「You're on the list」）、加值 → 穩定幣收款地址、Connected Accounts、Earn、Borrow、股票列表、Portfolio。Smart Wallet 地址的推導和 main 相同
+      未驗：TrackFi（這台模擬器沒有 passkey，建立會改到帳號）、銀行轉帳（打開可能在 Bridge 建立虛擬帳戶）、刪除帳戶
 
 ## 4. 發佈
 
