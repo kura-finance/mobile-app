@@ -158,3 +158,67 @@ A store reviewer can question a declared permission the app never requests, and
 the wording contradicts "no identity data". Removing them for the on-chain
 build means making these entries depend on `EXPO_PUBLIC_API_BASE_URL` and
 re-testing a release build on a device; that has **not** been done.
+
+## 6. Checklist before the on-chain release
+
+What has and has not been verified so far. The simulator runs (iOS, 2026-11-14
+to 16) have no biometrics and no funds, so a release build still has to go
+through this on real iOS and Android devices.
+
+### On a device, `EXPO_PUBLIC_API_BASE_URL` empty
+
+Checked on the simulator only — repeat on a device:
+
+- First launch shows "Create a new wallet / I already have a wallet", no Privy login.
+- Create: the 12 words, the backup checkbox, then an App PIN.
+- Import a recovery phrase (the private-key import has **not** been tried).
+- Cold start asks for the PIN, rejects a wrong one, returns to the same wallet.
+- Recovery phrase in Settings needs the App lock first.
+- Remove wallet from this device: confirmation, then back to create / import.
+- "Forgot PIN" offers only removal; cancelling keeps the PIN and the wallet.
+- Add money shows only the USDC address; no card banner on Home.
+
+Not checked at all:
+
+- [ ] Unlock with Face ID / fingerprint.
+- [ ] Screenshots blocked on the recovery phrase screen (the simulator's capture
+      sees it, so this can only be judged on a device).
+- [ ] Creating a wallet on an Android device without biometrics (falls back to
+      the plain keystore).
+- [ ] How often the system asks to authenticate a signature; if too often,
+      change the key's storage options.
+- [ ] Send a little USDC, one swap, one WalletConnect dApp signature.
+- [ ] Morpho Earn deposit and withdraw.
+- [ ] The Send screen shows only crypto recipients.
+- [ ] No request to `api.kura-finance.com` or Privy during all of the above.
+- [ ] **Old-user migration** (§1 step 1) with a real account. The notice in §2
+      says the address and funds do not change; do not publish it before this.
+
+### Backend build (what the current store release runs)
+
+Checked on 2026-11-16 against the live backend with a real account: Privy
+login, profile, referrals, card waitlist, Add money → stablecoin address,
+Connected Accounts, Earn, Borrow, stocks, Portfolio, transaction history. The
+Smart Wallet address derivation is unchanged from before. Not checked:
+
+- [ ] TrackFi (needs a passkey on the device; creating one changes the account).
+- [ ] Bank transfer (opening it may create a virtual account at Bridge).
+- [ ] Account deletion.
+
+### Build and store
+
+- [ ] Leave `EXPO_PUBLIC_API_BASE_URL` empty; no Privy keys needed.
+- [ ] `EXPO_PUBLIC_LIFI_FEE` empty, or the fee you intend. It is a fraction of the
+      amount swapped: `0.0025` is 0.25%, `0.25` is 25%. The web client takes none.
+- [ ] Store forms (§4) and the privacy policy on the website.
+- [ ] Permission strings (§5).
+
+### When the hosted backend shuts down
+
+- [ ] Publish the notice (§2) before the on-chain build reaches users (§1).
+- [ ] Change the five places that say the backend runs until 2027 back to
+      "retired": README, `docs/handover.md`, `docs/official-services.md`,
+      `docs/local-release.md`, `docs/transparency.md`.
+- [ ] Keep the Privy app alive for as long as anyone may still need to export a key.
+- [ ] Web: remove the backend build args from `deploy.yml` (WebClients
+      `docs/deploy.md`).
