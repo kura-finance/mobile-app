@@ -123,7 +123,23 @@ function getBridgeSourceFiat(
   return null;
 }
 
-export function getTxUsdValue(tx: WalletTx): number {
+/**
+ * Stablecoins tracking a currency other than the dollar, by symbol. Their
+ * amount is valued through that currency's exchange rate.
+ */
+const NON_USD_STABLE_CURRENCY: Record<string, string> = {
+  EURC: 'EUR',
+  BRZ: 'BRL',
+  MXNE: 'MXN',
+};
+
+/**
+ * USD value of the transaction, or null when it cannot be told from the amount
+ * alone: a volatile token (WETH, cbBTC…) or a stablecoin of a currency without
+ * a rate. History has no price at the time of each transfer, so those show
+ * their token quantity instead of a made-up dollar figure.
+ */
+export function getTxUsdValue(tx: WalletTx): number | null {
   if (tx.source === 'fiat_deposit') {
     if (tx.amount > 0) return Math.abs(tx.amount);
     const fiat = getBridgeSourceFiat(tx);
@@ -136,16 +152,26 @@ export function getTxUsdValue(tx: WalletTx): number {
     return Math.abs(tx.amount);
   }
   const abs = Math.abs(tx.amount);
-  if (isUsdPeggedSymbol(tx.tokenSymbol)) return abs;
-  return abs;
+  const symbol = tx.tokenSymbol.toUpperCase();
+  const currency = NON_USD_STABLE_CURRENCY[symbol];
+  if (currency) {
+    const usd = usdFromFiatAmount(abs, currency, getLiveExchangeRates());
+    return usd > 0 || abs === 0 ? usd : null;
+  }
+  if (isUsdPeggedSymbol(symbol)) return abs;
+  return null;
 }
 
-/** Buy / Sell / Morpho collateral deposit / withdraw of non-stable assets show token qty. */
+/**
+ * Show the token quantity instead of a fiat value: for any token whose value
+ * is unknown, and for the source fiat of a Bridge deposit with no USDC yet.
+ */
 export function shouldShowTxTokenQuantity(tx: WalletTx): boolean {
   if (tx.source === 'fiat_deposit') {
     const fiat = getBridgeSourceFiat(tx);
     return !!fiat && getTxUsdValue(tx) === 0;
   }
+  if (getTxUsdValue(tx) === null) return true;
   if (
     (tx.activityKind === 'deposit' || tx.activityKind === 'withdraw')
     && tx.activitySubkind === 'borrow_collateral'
@@ -177,17 +203,22 @@ export function formatTxListAmount(
     if (fiat) return `${prefix}${formatTxTokenAmount(fiat.amount, fiat.currency)}`;
     return `${prefix}${formatTxTokenAmount(tx.amount, tx.tokenSymbol)}`;
   }
-  return `${prefix}${formatFiat(getTxUsdValue(tx))}`;
+  return `${prefix}${formatFiat(getTxUsdValue(tx) ?? 0)}`;
 }
 
-/** Detail Amount row — always base-currency formatted with currency code as unit. */
+/**
+ * Detail Amount row — base-currency formatted with the currency code as unit,
+ * or the token quantity when the value is unknown.
+ */
 export function formatTxDetailAmount(
   tx: WalletTx,
   formatFiat: (usd: number) => string,
   currencyCode: string,
 ): string {
   const prefix = getTxAmountPrefix(tx);
-  return `${prefix}${formatFiat(getTxUsdValue(tx))} ${currencyCode}`;
+  const usd = getTxUsdValue(tx);
+  if (usd === null) return `${prefix}${formatTxTokenAmount(tx.amount, tx.tokenSymbol)}`;
+  return `${prefix}${formatFiat(usd)} ${currencyCode}`;
 }
 
 export function isExternalAddressDisplay(display: AddressDisplay): boolean {
